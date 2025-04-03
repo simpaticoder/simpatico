@@ -1,0 +1,19 @@
+{
+  "name": "simpatico",
+  "version": "1.0.0",
+  "description": "Pleasant web dx on a small, secure, fast http/ws/s server for html and md. ",
+  "author": "simpaticorp",
+  "license": "MIT",
+
+  "type": "module",
+  "exports": {
+    ".": "./lib.js"
+  },
+  "bin":{
+    "simpatico": "./index.js"
+  },
+  "scripts": {
+    "test": "./test.js",
+    "start": "./index.js"
+  }
+}
