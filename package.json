@@ -1,6 +1,6 @@
 {
   "name": "simpatico",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A small, secure, low dependency, no-build, fast http & ws server for html & md. ",
   "author": "simpaticorp",
   "license": "MIT",
