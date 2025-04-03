@@ -4,13 +4,16 @@
   "description": "A small, secure, low dependency, no-build, fast http & ws server for html & md. ",
   "author": "simpaticorp",
   "license": "MIT",
-  "repository": "https://github.com/simpaticoder/simpatico",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simpaticoder/simpatico.git"
+  },
   "type": "module",
   "exports": {
     ".": "./lib.js"
   },
-  "bin":{
-    "simpatico": "./index.js"
+  "bin": {
+    "simpatico": "index.js"
   },
   "scripts": {
     "test": "./test.js",
