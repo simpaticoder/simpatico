@@ -13,10 +13,16 @@
     ".": "./lib.js"
   },
   "bin": {
-    "simpatico": "index.js"
+    "simpatico": "server.js"
   },
   "scripts": {
-    "test": "./test.js",
-    "start": "./index.js"
+    "test": "./tests/test.js",
+    "start": "./server.js",
+    "copy-css": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "github-markdown-css": "^5.8.1",
+    "ws": "^8.18.1"
   }
 }
