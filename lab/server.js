@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Function to read a local file
-function readDependencyFile(filePath) {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function readFile(filePath, local=true) {
+    const __dirname = local ? process.cwd() : dirname(fileURLToPath(import.meta.url));
     const absolutePath = resolve(__dirname, filePath);
     const data = readFileSync(absolutePath, 'utf-8');
     console.log(`Contents of dependency file (${filePath}):\n${data}`);

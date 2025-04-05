@@ -5,6 +5,7 @@ import https from 'node:https';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
+import * as os from "node:os";
 
 import WebSocket, { WebSocketServer } from 'ws';
 import chokidar from 'chokidar';
@@ -13,7 +14,6 @@ import { info, log, error, debug, mapObject, hasProp, parseObjectLiteralString, 
 import { combine } from './lib/combine.js';
 import { stree as stree } from './lib/stree.js';
 import { buildHtmlFromLiterateMarkdown } from './lib/litmd.js';
-import * as os from "node:os";
 
 // INIT Begin ========================================
 
@@ -52,6 +52,7 @@ if (process.send) process.send(config);
 // ================================================================
 // The remainder of the file are supporting functions for the above
 // ================================================================
+
 function processConfig(envPrefix='SIMP_') {
     //hardcoded defaults, usually best for new devs
     const baseConfig = {
@@ -68,6 +69,7 @@ function processConfig(envPrefix='SIMP_') {
         logFileServerRequests: true,
         superCacheEnabled: false,
         debug: true,
+        // litmd: {}, //added below
         // measured: {},      //added below
     };
     const envConfig = mapObject(baseConfig, ([key,_]) => ([key, process.env[`${envPrefix}${key.toUpperCase()}`]]));
@@ -89,6 +91,16 @@ function processConfig(envPrefix='SIMP_') {
         if (typeof a === 'number' && typeof b === 'string') return +b;
         if (typeof a === 'boolean' && typeof b === 'string') return b === 'true';
     });
+    config.litmd = {
+        hostname: config.measured.name,
+        baseUrl: config.useTls ? `https://${config.hostname}:${config.https}` : `http://${config.hostname}:${config.http}`,
+        author: config.measured.name,
+        keywords:"es6, minimalist, vanillajs, notebook",
+        copyrightHolder: config.measured.name,
+        copyrightYear: new Date().getFullYear()
+    }
+    config.litmd.baseUrl = config.useTls ? `https://${config.hostname}:${config.https}` : `http://${config.hostname}:${config.http}`;
+
 
     // Mutate DEBUG to be consistent with config.debug
     DEBUG = config.debug;
@@ -415,7 +427,7 @@ function readProcessCache(fileName) {
     let hash = sha256(data);
 
     // 1. Convert literate markdown to html
-    data = buildHtmlFromLiterateMarkdown(data, fileName);
+    data = buildHtmlFromLiterateMarkdown(data, fileName, config.litmd);
 
     // 2. In html, replace sub-resource links with cache-busting urls
     if (config.superCacheEnabled)
