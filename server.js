@@ -6,6 +6,8 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import * as os from "node:os";
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import WebSocket, { WebSocketServer } from 'ws';
 import chokidar from 'chokidar';
@@ -91,16 +93,16 @@ function processConfig(envPrefix='SIMP_') {
         if (typeof a === 'number' && typeof b === 'string') return +b;
         if (typeof a === 'boolean' && typeof b === 'string') return b === 'true';
     });
+    // TODO make this overridable
     config.litmd = {
         hostname: config.measured.name,
+        specialPathPrefix: '/s/',
         baseUrl: config.useTls ? `https://${config.hostname}:${config.https}` : `http://${config.hostname}:${config.http}`,
         author: config.measured.name,
         keywords:"es6, minimalist, vanillajs, notebook",
         copyrightHolder: config.measured.name,
         copyrightYear: new Date().getFullYear()
     }
-    config.litmd.baseUrl = config.useTls ? `https://${config.hostname}:${config.https}` : `http://${config.hostname}:${config.http}`;
-
 
     // Mutate DEBUG to be consistent with config.debug
     DEBUG = config.debug;
@@ -351,7 +353,11 @@ function fileServerLogic() {
          * @returns {string} A "normalized" URL e.g. '/chat.html' or '/svg.md'
          */
         function urlToFileName (path) {
-            const cwd = process.cwd();
+            // a special url is one that loads resources from the simpatico package files
+            const isSpecial = path.startsWith(config.litmd.specialPathPrefix);
+            const __dirname = isSpecial ? (dirname(fileURLToPath(import.meta.url))) :  process.cwd() ;
+            path = isSpecial ? path.substring(config.litmd.specialPathPrefix.length-1) : path;
+
             // strip out parameters
             if (path.indexOf('?') > -1)   {
                 path = path.substr(0, path.indexOf('?'));
@@ -359,7 +365,7 @@ function fileServerLogic() {
             const c = candidates(path);
             let found;
             for (let i = 0; i < c.length; i++) {
-                let candidatePath = cwd + c[i];
+                let candidatePath = __dirname + c[i];
                 if (fs.existsSync(candidatePath)) {
                     found = candidatePath;
                     break;

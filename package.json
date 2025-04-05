@@ -10,13 +10,13 @@
   },
   "type": "module",
   "exports": {
-    ".": "./lib.js"
+    ".": "./lib/simpatico.js"
   },
   "bin": {
     "simpatico": "server.js"
   },
   "scripts": {
-    "test": "./tests/test.js",
+    "test": "./test/test.js",
     "start": "./server.js",
     "copy-css": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/"
   },

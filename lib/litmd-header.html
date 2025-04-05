@@ -7,14 +7,14 @@
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'>
   <rect width='1' height='1' fill='DodgerBlue' />
 </svg>"/>
-<script src="/lib/testable.js" type="module"></script>
-<script src="/lib/litmd-header.js" type="module"></script>
+<script src="{{specialPathPrefix}}lib/testable.js" type="module"></script>
+<script src="{{specialPathPrefix}}lib/litmd-header.js" type="module"></script>
 
 <title>{{title}}</title>
 
 <meta name="keywords" content="{{keywords}}">
 <meta name="author" content="{{author}}">
-<link rel="stylesheet" type="text/css" href="/vendor/github-markdown.css">
+<link rel="stylesheet" type="text/css" href="{{specialPathPrefix}}vendor/github-markdown.css">
 <style>
     .markdown-body {
         box-sizing: border-box;
@@ -50,12 +50,12 @@
     }
 
 </style>
-<link rel="stylesheet" href="/vendor/highlight.github-dark.css">
+<link rel="stylesheet" href="{{specialPathPrefix}}vendor/highlight.github-dark.css">
 
 <body class="markdown-body">
 <header>
     <nav>
-        <a href="{{baseUrl}}" style="float:left"><img alt="logo" src="/img/wizard.svg" height="70"></a>
+        <a href="{{baseUrl}}" style="float:left"><img alt="logo" src="{{specialPathPrefix}}img/wizard.svg" height="70"></a>
         <a href="{{baseUrl}}"><span style="font-family: 'Arial', sans-serif; font-size: 30px; font-variant: all-small-caps; color: #eee; margin-left: 10px;">{{hostname}}</span></a><br>
         <a href="{{baseUrl}}"><span style="font-family: 'Arial', sans-serif; font-size: 30px; color: #eee; margin-left: 10px;">{{title}}</span></a>
         <ul class="nav-menu">
