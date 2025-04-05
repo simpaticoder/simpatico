@@ -10,14 +10,14 @@
   },
   "type": "module",
   "exports": {
-    ".": "./lib/simpatico.js"
+    ".": "./lib.js"
   },
   "bin": {
     "simpatico": "server.js"
   },
   "scripts": {
-    "test": "./test/test.js",
-    "start": "./server.js",
+    "test": "node ./test/test.js",
+    "start": "node server.js",
     "copy-css": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/"
   },
   "dependencies": {
