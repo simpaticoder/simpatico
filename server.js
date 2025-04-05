@@ -95,7 +95,7 @@ function processConfig(envPrefix='SIMP_') {
     });
     // TODO make this overridable
     config.litmd = {
-        hostname: config.measured.name,
+        hostname: config.hostname,
         specialPathPrefix: '/s/',
         baseUrl: config.useTls ? `https://${config.hostname}:${config.https}` : `http://${config.hostname}:${config.http}`,
         author: config.measured.name,
