@@ -10,7 +10,7 @@
   },
   "type": "module",
   "exports": {
-    ".": "./lib.js"
+    ".": "./lib/simpatico.js"
   },
   "bin": {
     "simpatico": "server.js"
@@ -18,11 +18,17 @@
   "scripts": {
     "test": "node ./test/test.js",
     "start": "node server.js",
-    "copy-css": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/"
+    "copy-vendor": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/ && cp ./node_modules/webcryptobox/index.js ./vendor/webcryptobox.js",
+    "copy-lab": "echo 'not ready yet' && cp ./node_modules/dompurify/dist/purify.es.mjs ./lab/dompurify.js && cp ./node_modules/qrcode/index.js ./vendor/qrcode.js"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
     "github-markdown-css": "^5.8.1",
+    "webcryptobox": "^4.0.0",
     "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "dompurify": "^3.2.5",
+    "qrcode": "^1.5.4"
   }
 }
