@@ -207,8 +207,7 @@ function httpRedirectServerLogic (req, res) {
     }
     // Everything else, redirect permanently to https
     // test with { echo "GET /"; echo "\n"; sleep 1; } | telnet simpatico.local 8080
-    const redirectUrl = `https://${config.hostname}:${config.https}${req.url}`;
-    res.writeHead(308, {Location: redirectUrl});
+    res.writeHead(308, {Location: config.baseUrl});
     res.end()
 }
 
