@@ -29,9 +29,10 @@ In test, client `VERIFIED` state triggers a `sendEvelop` to a random peer.
 ```
 
 ```js
-import {combineRules, stree, renderStree, renderStrees, svg, h, DELETE, equals, encodeBase64URL, decodeBase64URL} from '../lib/simpatico.js';
+import {combineRules, stree, svg, h, DELETE, equals, encodeBase64URL, decodeBase64URL} from '../lib/simpatico.js';
 import {state, connect, send, register1, register2, register3, register4, sendEnvelop, deliverEnvelop, acceptEnvelop, summarizeServer, summarizeClient, generateKeyPair, MockWebSocket} from "./websocket.js";
 import * as wcb from '../vendor/webcryptobox.js';
+import { renderStree, renderStrees } from './stree-visualization.js';
 
 const renderServerTreeParent = svg.elt('server-tree-render');
 const renderClientTreesParent = svg.elt('client-trees-render');

@@ -14,8 +14,8 @@ A generalization of `Object.assign` that supports reduction, adding/removing pro
 
 ```html
 <script type="module">
-  import {assertEquals} from '/core.js';
-  import {combine} from '/combine.js';
+  import {assertEquals} from '/s/lib/core.js';
+  import {combine} from '/s/lib/combine.js';
 
   assertEquals(3, combine(1, 2));
 </script>
@@ -32,7 +32,7 @@ Within [litmd](/lit.md) code snippets served by the [reflector](/reflector.md) y
 (If you don't include your own imports, default imports will apply):
 
 ```js
-  import {combine} from '/combine.js';
+import {combine} from '/s/lib/combine.js';
 
 assertEquals(3, combine(1, 2));
 ```
@@ -47,7 +47,7 @@ Combine's action varies according to the types of its arguments.
 Numbers add. Most other scalars "replace":
 
 ```js
-  import {combine} from "/combine.js";
+import {combine} from "/s/lib/combine.js";
 
 assertEquals('bar', combine('foo', 'bar'), 'strings replace');
 assertEquals(false, combine(true, false), 'booleans replace');
@@ -60,7 +60,7 @@ For objects, combine mostly behaves just like `Object.assign`.
 They both merge keys:
 
 ```js
-  import {combine} from "/combine.js";
+import {combine} from "/s/lib/combine.js";
 
 assertEquals({a: 1, b: 2}, combine({a: 1}, {b: 2}), 'combine merges keys');
 assertEquals({a: 1, b: 2}, Object.assign({}, {a: 1}, {b: 2}), 'Object.assign merges keys');
@@ -68,7 +68,7 @@ assertEquals({a: 1, b: 2}, Object.assign({}, {a: 1}, {b: 2}), 'Object.assign mer
  `Object.assign` is shallow, `combine()` is deep:
 
 ```js
-  import {combine, DELETE} from "/combine.js";
+import {combine, DELETE} from "/s/lib/combine.js";
 
 assertEquals({a: {b: 2}}, combine({a: {b: 1}}, {a: {b: 1}}), 'combine is deep');
 assertEquals({a: {b: 1}}, Object.assign({}, {a: {b: 1}}, {a: {b: 1}}), 'Object.assign is shallow');
@@ -81,9 +81,9 @@ A `Symbol` would work, but cannot be easily de/serialized. (We might do `Symbol(
 So we pick a special string and export it from `combine`.
 
 ```js
-  import {combine, DELETE} from "/combine.js";
+import {combine, DELETE} from "/s/lib/combine.js";
 
-  assertEquals({}, combine({a:1}, {a: DELETE}), 'special delete token deletes');
+assertEquals({}, combine({a:1}, {a: DELETE}), 'special delete token deletes');
 ```
 _________________________________________________________
 # Combining with Handlers
@@ -91,9 +91,9 @@ _________________________________________________________
 `combine()` supports *handlers*. A handler looks like this:
 
 ```js
-  // This handler ignores its arguments and returns an array of 2 objects:
-  const inc = {handle: (core, msg) => [ {a:1}, {b:2} ] };
-  assertEquals([ {a:1}, {b:2} ], inc.handle());
+// This handler ignores its arguments and returns an array of 2 objects:
+const inc = {handle: (core, msg) => [ {a:1}, {b:2} ] };
+assertEquals([ {a:1}, {b:2} ], inc.handle());
 ```
 
 Handlers are how you program cores in Simpatico.
@@ -106,7 +106,7 @@ Handlers take two arguments, the target and the message, in the first and second
 Also, we add a 'msg' entry that describes a typical message for this handler:
 
 ```js
-  import {combine} from "/combine.js";
+import {combine} from "/s/lib/combine.js";
 // This handler returns an array of 2 objects:
 const inc = {handle: (core, msg) => [{a: 1}, {b: 2}]};
 assertEquals([{a: 1}, {b: 2}], inc.handle());
@@ -146,9 +146,9 @@ It *is* annoying to separate them!
 _________________________________________________________
 ## Assertion handler
 Before moving on its useful to define an "<span title="This was successful and was extracted into handlers.js">assertion handler</span>":
-
+> **Note:** This handler is exposed by `handlers.js`
 ```js
-  import {combine} from "/combine.js";
+import {combine} from "/s/lib/combine.js";
 
 const assertHandlerDemo = {
   name: 'assert',
@@ -196,8 +196,8 @@ but as a function object that can both be invoked and have properties added to i
 Here is a somewhat redundant example that I may remove in the future (although it does demonstrate using core values in the handler result):
 
 ```js
-  import {combine} from "/combine.js";
-import {assertHandler} from "/handlers.js";
+import {combine} from "/s/lib/combine.js";
+import {assertHandler} from "/s/lib/handlers.js";
 
 const has = assertHandler.call;
 const dbl = {
@@ -219,12 +219,12 @@ combine(ops);
 ```
 _________________________________________________________
 ## Log Handler
-<span title="Also successful, extracted into handlers.js">This is a handler that logs</span>
-
+This is a handler that logs: 
+> **Note:** This handler is exposed by `handlers.js`
 ```js
-import {hasProp} from "/core.js";
-import {combine} from "/combine.js";
-import {assertHandler, logHandler} from "/handlers.js";
+import {hasProp} from "/s/lib/core.js";
+import {combine} from "/s/lib/combine.js";
+import {assertHandler, logHandler} from "/s/lib/handlers.js";
 
 const logHandlerDemo = {
   name: 'log',
@@ -270,8 +270,8 @@ _________________________________________________________
 Handlers replace, so we can overwrite the old handler and call it with the same message:
 
 ```js
-import {combine} from "/combine.js";
-import {assertHandler} from "/handlers.js";
+import {combine} from "/s/lib/combine.js";
+import {assertHandler} from "/s/lib/handlers.js";
 
 const has = assertHandler.call;
 const inc1 = {handle: () => [{a: 1}, {b: 2}]};
@@ -298,8 +298,8 @@ _________________________________________________________
 Functions replace, so we can overwrite the old handler and call it with the same message:
 
 ```js
-  import {combine} from "/combine.js";
-import {assertHandler} from "/handlers.js";
+import {combine} from "/s/lib/combine.js";
+import {assertHandler} from "/s/lib/handlers.js";
 
 const has = assertHandler.call;
 const h1 = {
@@ -326,99 +326,18 @@ Because `combine` is a pure function, no modification of the core occurs.
 
 
 ```js
-import { combine } from '/combine.js';
+import { combine } from '/s/lib/combine.js';
 
 const alwaysErrorHandler = {handlers: {err: {name: 'err', handle: () => ({a:1, b:2})}}};
 let result;
+let throws = false;
 try{
   result = combine([alwaysErrorHandler, {handler: 'err'} ]);
 } catch(e) {
+  throws = true;
   assertEquals({a:1, b:2}, e.customData);
   assertEquals(undefined, result);
 }
-```
-# Combine and friendly functions
-This convention supports the use of [friendly functions](friendly.md) to do validation on handler arguments.
-(This will be a regular pattern in most handlers, so we will eventually move the boilerplate into combine.)
-```js
-import { combine } from '/combine.js';
-import { validate } from '/friendly.js';
-
-const user = {
-  name: 'user',
-  pattern: {
-      name: ['str', 'between', 1,10],
-      age: [ 'num', 'between', 1, 100],
-  },
-  example: {
-      name: 'alice',
-      age: 25,
-  },
-  handle: function (core, msg) {
-      // check that the msg is valid
-      const errors = validate(this.pattern, msg);
-      if (errors) return errors;
-      // if valid, remove the handler property to avoid blowing the stack and return in an array
-      const {handler, ...user} = msg;
-      return [user];
-  }
-}
-let result;
-
-// no user data at all
-try {
-  result = combine([{handlers: {user}}, {handler: 'user'}]);
-  assertTrue(false);
-}catch (e){
-  assertEquals({name: ['str', 'between', 1,10], age: [ 'num', 'between', 1, 100]}, e.customData);
-  assertEquals(undefined, result);
-}
-// only the name, missing age
-try {
-  result = combine([{handlers: {user}}, {handler: 'user', name: 'alice'}]);
-  assertTrue(false);
-}catch (e){
-  assertEquals({age: [ 'num', 'between', 1, 100]}, e.customData);
-  assertEquals(undefined, result);
-}
-// both name and age are present
-result = combine([{handlers: {user}}, {handler: 'user', name: 'alice', age: 25}]);
-assertEquals('alice', result.name);
-assertEquals(25, result.age);
-
+if (!throws) throw 'should have thrown';
 ```
 
-# Custom rules
-You can override the default ruleset in combine.
-```js
-import {combineRules} from '/combine.js';
-
-assertEquals(6, combineRules(2,3, (a,b) => a * b));
-// custom embedded rules are scalar so they work in objects.
-// to do general custom rules would require type-checking
-assertEquals({a: 6}, combineRules({a:2},{a:3}, (a,b) => a * b));
-
-//To make it a reducer you need to do a manaul partial application.
-const mulCombine = (a,b) => combineRules(a,b,(a,b) => a * b);
-assertEquals(16, [2,2,2,2].reduce(mulCombine, 1));
-```
-Note that in a [previous version](/notes/combine.md) combine rules were specified as a ruleset, and so easily replaced without function composition.
-
-# Message Cascade with msgs
-It is sometimes useful to expose the message cascade to calling code.
-This only applies when a handler calls another handler.
-In this case, `combine` will add a `msgs` property to the residue, and include a simple, linear representation of the message cascade.
-
-TODO add a code example
-
-
-
-_________________________________________________________
-# Next: stree
-
-Modeling program state as a monotonically increasing list of input, all of which are objects, gives us a great benefit:
-We can imagine branching our program state in a very natural way.
-This method of branching turns out to be both simpler and more expressive than either inheritance relationships or instantiation.
-This will be dealt with in the `stree` section.
-
-Continue with [stree3](./stree3.md).
