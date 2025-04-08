@@ -8,7 +8,7 @@ See also
 [reflector](/reflector.md),
 [other literate programming tools](http://literateprogramming.com)
 
-[![Aperiodic tile with one tile](/img/aperiodic-green.svg =500x500)](https://arxiv.org/abs/2303.10798)
+[![Aperiodic tile with one tile](/s/img/aperiodic-green.svg =500x500)](https://arxiv.org/abs/2303.10798)
 
 HTML will always be the primary authoring tool.
 But it is difficult to write *about* code in HTML.
@@ -167,19 +167,12 @@ In `litmd.js` you have `markdownDefaultImports` currently set to:
 
 ```js
 ///
-import {assertEquals, assertThrows} from "/core.js";
-import {combine, assertHandler, logHandler} from "/Users/alber/IdeaProjects/simpatico/combine.js";
-import {stree} from "/stree2.js";
+import * as c from "/s/lib/core.js";
+const {assert, assertEquals, assertThrows, is, as, log, debug} = c;
+const etc = []; // allows for ...etc in literate code
 
-const etc = []; // stupid, yes. but funny, [...etc]
 ```
 
-Note that imports will collide and fail.
-This expression will fail, although we can't easily test it in the browser:
-```js
-///
-import {stree} from "/stree2.js";
-```
 
 We *can* automatically test the `import()` function:
 
