@@ -325,7 +325,7 @@ class Reflector {
                 }));
                 return;
             }
-
+            if (this.config.debug) console.log({fileName});
             // Send successful response
             const respondWithData = data => {
                 res.writeHead(
@@ -429,6 +429,7 @@ class Reflector {
 
         // Find matching file
         const candidateFiles = this.getCandidateFiles(path);
+        if (this.config.debug) console.log({candidateFiles, dirname: __dirname});
         let found;
 
         for (let i = 0; i < candidateFiles.length; i++) {
@@ -448,7 +449,7 @@ class Reflector {
 
     getCandidateFiles(path) {
         if (path.endsWith('/')) {
-            return [path + 'index.md', path + 'index.html'];
+            return [path + 'index.md', path + 'index.html', path + 'README.md'];
         }
 
         const parts = path.split('/');
