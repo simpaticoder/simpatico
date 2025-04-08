@@ -47,7 +47,7 @@ class Reflector {
 
         // Print welcome message
         info("File server format is [iso date] [req.socket.remoteAddress] [req.headers[user-agent]] [req.url] (? => [normalized url)");
-        info(`Initialization complete. Open ${this.config.baseUrl}/${findRecentFile()} or ${this.config.baseUrl}/acceptance}`);
+        info(`Initialization complete. Open ${this.config.baseUrl}/${path.relative(process.cwd(), findRecentFile())} or ${this.config.baseUrl}/acceptance}`);
 
         if (process.send) process.send(this.config);
     }
