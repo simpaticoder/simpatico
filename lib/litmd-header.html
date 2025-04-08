@@ -29,24 +29,42 @@
             padding: 15px;
         }
     }
-    .nav-menu {
-        display: flex;
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        background-color: #1f2328;
+    @media (prefers-color-scheme: light) {
+        nav {
+            background-color: #ffffff;
+            color: #24292e;
+        }
     }
 
-    .nav-menu li {
-        margin-right: 10px;
+    /* Navigation styling */
+    nav {
+        background-color: #f6f8fa; /* Light theme nav background */
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 20px; /* Space below navigation */
     }
 
-    .nav-menu a {
+    @media (prefers-color-scheme: dark) {
+        nav {
+            background-color: #161b22; /* Dark theme nav background */
+        }
+    }
+
+    nav ul {
+        list-style: none; /* Remove bullets */
+        padding: 0; /* Remove default padding */
+        margin: 0; /* Remove default margin */
+        display: flex; /* Display links horizontally */
+        gap: 15px; /* Space between links */
+    }
+
+    nav a {
         text-decoration: none;
-        color: white;
+        color: inherit; /* Inherit text color from theme */
+        padding: 5px 10px;
     }
 
-    .nav-menu a:hover {
+    nav a:hover {
         text-decoration: underline;
     }
 
@@ -61,10 +79,11 @@
         <a href="{{baseUrl}}"><span style="font-family: 'Arial', sans-serif; font-size: 30px; color: #eee; margin-left: 10px;">{{title}}</span></a>
         <ul class="nav-menu">
             <li>&nbsp;
-            <li><a href="/TODO.md">Todo</a>
-            <li><a href="/README.md">Readme</a>
-            <li><a href="https://www.github.com/simpaticoder/simpatico/" target="_blank">GitHub ↗</a>
-            <li><a href="https://www.patreon.com/simpaticoder" target="_blank">Patreon ↗</a>
+            <li><a href="/">Home</a>
+            <li><a href="/s/test/">Examples</a>
+            <li><a href="/blog/">Blog</a>
+            <li><a href="https://www.github.com/simpaticoder/simpatico/" target="_blank">Source ↗</a>
+            <li><a href="https://www.patreon.com/simpaticoder" target="_blank">Contribute ↗</a>
         </ul>
     </nav>
 </header>
