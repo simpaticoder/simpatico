@@ -25,12 +25,12 @@
   },
   "dependencies": {
     "chokidar": "^4.0.3",
-    "github-markdown-css": "^5.8.1",
     "webcryptobox": "^4.0.0",
     "ws": "^8.18.1"
   },
   "devDependencies": {
     "dompurify": "^3.2.5",
+    "github-markdown-css": "^5.8.1",
     "qrcode": "^1.5.4"
   }
 }
