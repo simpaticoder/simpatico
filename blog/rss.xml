@@ -1,0 +1,27 @@
+
+      <rss version="2.0">
+          <channel>
+              <title>Simpatico developer blog</title>
+              <link>blog/</link>
+              <description>Making software, together</description>
+              
+                <item>
+                  <title>index</title>
+                  <link>blog/index.md</link>
+                  <description>index.md</description>
+                </item>
+
+                <item>
+                  <title>1</title>
+                  <link>blog/1.md</link>
+                  <description>1.md</description>
+                </item>
+
+                <item>
+                  <title>2</title>
+                  <link>blog/2.md</link>
+                  <description>2.md</description>
+                </item>
+          </channel>
+      </rss>
+  

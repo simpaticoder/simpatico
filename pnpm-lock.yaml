@@ -11,9 +11,6 @@ importers:
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
-      github-markdown-css:
-        specifier: ^5.8.1
-        version: 5.8.1
       webcryptobox:
         specifier: ^4.0.0
         version: 4.0.0
@@ -24,6 +21,9 @@ importers:
       dompurify:
         specifier: ^3.2.5
         version: 3.2.5
+      github-markdown-css:
+        specifier: ^5.8.1
+        version: 5.8.1
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
