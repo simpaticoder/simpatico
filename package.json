@@ -20,17 +20,21 @@
     "test": "node ./test/test.js",
     "start": "node ./server.js",
     "blog": "node ./lib/blog.js",
-    "copy-vendor": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/ && cp ./node_modules/webcryptobox/index.js ./vendor/webcryptobox.js",
-    "copy-lab": "echo 'not ready yet' && cp ./node_modules/dompurify/dist/purify.es.mjs ./lab/dompurify.js && cp ./node_modules/qrcode/index.js ./vendor/qrcode.js"
+    "copy-vendor": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/",
+    "copy-lab": "echo 'not ready yet' && cp ./node_modules/dompurify/dist/purify.es.mjs ./lab/dompurify.js && cp ./node_modules/qrcode/index.js ./vendor/qrcode.js",
+    "copy-crypto": "rollup -c && sed -i '1d' ./vendor/nacl.js"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
-    "webcryptobox": "^4.0.0",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "dompurify": "^3.2.5",
     "github-markdown-css": "^5.8.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "rollup": "^4.39.0"
   }
 }
