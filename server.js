@@ -68,7 +68,6 @@ class Reflector {
             useCache: true,
             useGzip: true,
             useTls: false,
-            password: 's3cret',
             logFileServerRequests: true,
             superCacheEnabled: false,
             debug: true,
@@ -563,6 +562,7 @@ class Reflector {
 
     chatServerLogic(ws) {
         // Register new connection
+        console.log('connected');
         const conn = this.connections.add({ ws }, 0);
 
         // Set up message handler
@@ -570,6 +570,7 @@ class Reflector {
     }
 
     handleMessage(message, branchIndex) {
+        console.log('message received ' + message);
         const residues = this.connections.residues();
         const connection = residues[branchIndex];
 
