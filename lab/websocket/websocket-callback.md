@@ -12,7 +12,7 @@ See [crypto](../crypto.md)
 ```
 
 ```js
-import {SecureWebSocketServer, SecureWebSocketClient, logMessage} from './websocket-plan.js'
+import {SecureWebSocketServer, SecureWebSocketClient, logMessage} from './websocket-callback.js'
 
 // Demonstration of secure communication
 function runSecureDemo() {
@@ -51,7 +51,7 @@ document.getElementById('run-secure').addEventListener('click', runSecureDemo);
 ```
 
 ```js
-import {SimulatedWebSocketServer, SimulatedWebSocketClient, logMessage} from './websocket-plan.js'
+import {SimulatedWebSocketServer, SimulatedWebSocketClient, logMessage} from './websocket-callback.js'
 function runBasicDemo() {
     const server = new SimulatedWebSocketServer();
     const client = new SimulatedWebSocketClient('ws://localhost:8080');
