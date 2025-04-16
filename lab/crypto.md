@@ -11,7 +11,7 @@ p This example demonstrates:
 <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: monospace;">
   <h1>Ed25519/X25519 Secure Communication Demo</h1>
   <button id="run-demo">Run Demonstration</button>
-  <pre id="message-container" style="background: #f4f4f4; padding: 15px; margin-top: 20px; height: 500px; overflow: auto; border: 1px solid #ddd;"></pre>
+  <pre id="message-container" style="background: #f4f4f4; color: #1a3b5d; padding: 15px; margin-top: 20px; height: 500px; overflow: auto; border: 1px solid #ddd;"></pre>
 </div>
 ```
 
