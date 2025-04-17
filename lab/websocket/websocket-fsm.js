@@ -131,9 +131,13 @@ export class PKIClient {
         });
     }
 
-    sendMessage(content, toPublicKey = null) {
+    sendMessage(content, toPublicKey) {
         if (this.state !== ClientState.AUTHENTICATED) {
             this.logger(`Error: Client ${this.id}: Cannot send message in state ${this.state}`);
+            return;
+        }
+        if (toPublicKey === null) {
+            this.logger(`Error: Client ${this.id}: Cannot send message ${content} without a public key`);
             return;
         }
 
