@@ -51,7 +51,7 @@ export class PKIClient {
 
         // Subscribe to messages from server
         this.unsubscribe = this.bus.subscribe(`client.${id}`, message => {
-            this.handleMessage(message);
+            this.#handleMessage(message);
         });
 
         this.logger(`PKIClient ${id}: Initialized in ${this.state} state`);
@@ -62,7 +62,7 @@ export class PKIClient {
             this.logger(`Client ${this.id}: Cannot connect. Current state: ${this.state}`);
             return;
         }
-        this.setState(ClientState.WAITING_FOR_CHALLENGE);
+        this.#setState(ClientState.WAITING_FOR_CHALLENGE);
         this.logger(`Client ${this.id}: Connection request sent`);
         // Send connection request
         this.bus.publish('server', {
@@ -71,13 +71,13 @@ export class PKIClient {
         });
     }
 
-    handleMessage(message) {
+    #handleMessage(message) {
         this.logger(`Client ${this.id}: Received message in state: ${this.state} message: ${JSON.stringify(message)}`, );
 
         switch (this.state) {
             case ClientState.WAITING_FOR_CHALLENGE:
                 if (message.type === 'challenge') {
-                    this.handleChallenge(message);
+                    this.#handleChallenge(message);
                 } else {
                     this.logger(`Error: Client ${this.id}: Unexpected message type in state ${this.state}:`, message.type);
                 }
@@ -85,10 +85,10 @@ export class PKIClient {
 
             case ClientState.AUTHENTICATING:
                 if (message.type === 'auth_success') {
-                    this.setState(ClientState.AUTHENTICATED);
-                    this.notifyListeners('authenticated');
+                    this.#setState(ClientState.AUTHENTICATED);
+                    this.#notifyListeners('authenticated');
                 } else if (message.type === 'auth_failure') {
-                    this.setState(ClientState.ERROR);
+                    this.#setState(ClientState.ERROR);
                     this.logger(`Error: Client ${this.id}: Authentication failed:`, message.reason);
                 } else {
                     this.logger(`Error: Client ${this.id}: Unexpected message type in state ${this.state}:`, message.type);
@@ -97,7 +97,7 @@ export class PKIClient {
 
             case ClientState.AUTHENTICATED:
                 if (message.type === 'message') {
-                    this.notifyListeners('message', {
+                    this.#notifyListeners('message', {
                         from: message.from,
                         content: message.content
                     });
@@ -109,7 +109,7 @@ export class PKIClient {
         }
     }
 
-    handleChallenge(challenge) {
+    #handleChallenge(challenge) {
         this.logger(`Client ${this.id}: Processing challenge`);
 
         // Convert from base64
@@ -120,7 +120,7 @@ export class PKIClient {
         const signatureB64 = CryptoUtils.arrayBufferToBase64(signature);
 
         // Transition state
-        this.setState(ClientState.AUTHENTICATING);
+        this.#setState(ClientState.AUTHENTICATING);
 
         // Send authentication response
         this.bus.publish('server', {
@@ -148,7 +148,7 @@ export class PKIClient {
             content
         });
 
-        this.logger(`Client ${this.id}: Sent message to ${toPublicKey ? 'specific recipient' : 'all'}`);
+        this.logger(`Client ${this.id}: Sent message to ${toPublicKey}`);
     }
 
     disconnect() {
@@ -161,13 +161,13 @@ export class PKIClient {
             clientId: this.id
         });
 
-        this.setState(ClientState.DISCONNECTED);
+        this.#setState(ClientState.DISCONNECTED);
         this.unsubscribe();
 
         this.logger(`Client ${this.id}: Disconnected`);
     }
 
-    setState(newState) {
+    #setState(newState) {
         this.logger(`Client ${this.id}: State transition ${this.state} -> ${newState}`);
         this.state = newState;
     }
@@ -179,7 +179,7 @@ export class PKIClient {
         this.handlers.get(event).push(handler);
     }
 
-    notifyListeners(event, data = null) {
+    #notifyListeners(event, data = null) {
         if (this.handlers.has(event)) {
             this.handlers.get(event).forEach(handler => handler(data));
         }
