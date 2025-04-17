@@ -3,7 +3,6 @@
 
 See [crypto](../crypto.md)
 
-html
 <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: monospace; ">
   <h1>PKI FSM Demo</h1>
   <button id="run-demo">Run Demo</button>
@@ -21,43 +20,36 @@ function runDemo() {
     
     const server = new PKIServer(bus, logMessage);
     const alice = new PKIClient('Alice', bus, logMessage);
-    // const bob = new PKIClient('Bob', bus, logMessage);
+    const bob = new PKIClient('Bob', bus, logMessage);
     
     alice.on('authenticated', () => {
         logMessage('Demo: Alice authenticated');
 
-        // // Check if Bob is authenticated and send message
-        // const checkInterval = setInterval(() => {
-        //     if (bob.state === 'authenticated') {
-        //         clearInterval(checkInterval);
-        //
-        //         // Send direct message
-        //         alice.sendMessage('Hello Bob, this is Alice!', bob.publicKeyB64);
-        //
-        //         // Send broadcast
-        //         setTimeout(() => {
-        //             alice.sendMessage('Hello everyone, this is Alice broadcasting!');
-        //         }, 500);
-        //     }
-        // }, 100);
+        // its safer to poll  because bob may already be authenticated
+        const checkInterval = setInterval(() => {
+            if (bob.state === 'authenticated') {
+                clearInterval(checkInterval);
+                alice.sendMessage('Hello Bob, this is Alice!', bob.publicKeyB64);
+            }
+        }, 100);
     });
 
-    // bob.on('message', (message) => {
-    //     logMessage(`Bob received message from ${message.from}: ${message.content}`);
-    // });
-    //
-    // alice.on('message', (message) => {
-    //     logMessage(`Alice received message from ${message.from}: ${message.content}`);
-    // });
+    bob.on('message', (message) => {
+        logMessage(`Bob received message from ${message.from}: ${message.content}`);
+    });
+
+    alice.on('message', (message) => {
+        logMessage(`Alice received message from ${message.from}: ${message.content}`);
+    });
 
     // Connect clients
     alice.connect();
-    // bob.connect();
+    bob.connect();
 
     // Return cleanup function
     return () => {
         alice.disconnect();
-        // bob.disconnect();
+        bob.disconnect();
         server.shutdown();
     };
 }

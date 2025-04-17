@@ -24,7 +24,6 @@ export class MessageBus {
 // States for the client state machine
 export const ClientState = {
     DISCONNECTED: 'disconnected',
-    CONNECTING: 'connecting',
     WAITING_FOR_CHALLENGE: 'waiting_for_challenge',
     AUTHENTICATING: 'authenticating',
     AUTHENTICATED: 'authenticated',
