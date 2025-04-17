@@ -36,6 +36,8 @@ function runDemo() {
 
     bob.on('message', (message) => {
         logMessage(`Bob received message from ${message.from}: ${message.content}`);
+        bob.sendMessage('Hello Alice, this is Bob!', alice.publicKeyB64);
+        
     });
 
     alice.on('message', (message) => {

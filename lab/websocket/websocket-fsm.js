@@ -1,6 +1,9 @@
 import {CryptoUtils} from "./crypto-utils.js";
 
-// Message bus for simulating communication
+/**
+ * MessageBus serves as a publish-subscribe messaging system, allowing different
+ * parts of an application to communicate through channels.
+ */
 export class MessageBus {
     constructor() {
         this.subscribers = new Map();
@@ -38,7 +41,18 @@ export const ServerClientState = {
     DISCONNECTED: 'disconnected'
 };
 
-// Client implementation
+/**
+ * PKIClient represents a client in a public key infrastructure (PKI) communication system.
+ *
+ * It handles operations such as connecting to a server, authenticating using public/private keys,
+ * sending messages, and disconnecting. The client subscribes to server messages via a message bus
+ * and transitions through different states (e.g., disconnected, waiting for challenge, authenticating, etc.).
+ *
+ * @class
+ * @param {string} id - Unique identifier for the client.
+ * @param {Object} bus - An event bus for message exchange between the client and server.
+ * @param {Function} [logger=console.log] - Optional logger function for logging messages.
+ */
 export class PKIClient {
     constructor(id, bus, logger=console.log) {
         this.id = id;
@@ -172,6 +186,13 @@ export class PKIClient {
         this.state = newState;
     }
 
+    /**
+     * Register event handlers for client events
+     * @param {string} event - Event type to listen for. Supported events:
+     *                       'authenticated' - Fired when client successfully authenticates
+     *                       'message' - Fired when client receives a message
+     * @param {Function} handler - Callback function to handle the event
+     */
     on(event, handler) {
         if (!this.handlers.has(event)) {
             this.handlers.set(event, []);
@@ -186,7 +207,11 @@ export class PKIClient {
     }
 }
 
-// Server implementation
+/**
+ * The PKIServer class represents a Public Key Infrastructure (PKI) server that
+ * facilitates secure communication between clients through message handling,
+ * challenge-response authentication, and key association management.
+ */
 export class PKIServer {
     constructor(bus, logger=console.log) {
         this.bus = bus;
