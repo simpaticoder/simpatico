@@ -1,18 +1,79 @@
 # STree Visualization
-2024
+2025
 
-Various approaches to visualizing stree with SVG.
+The stree is at its heart an n-arry tree of inputs (messages), mapped to an n-array tree of outputs (residues). Between the input and output may occur a recursion where messages trigger further messages until termination. The top level message is a "world event" and the subsequent messages form a "message cascade".
+
+The first "visualization" is in code: 
+
+```js
+import {stree} from "../lib/simpatico.js";
+
+const s = stree();
+const a = {a:1};
+s.addAll([a,a,a,a,a]);
+
+
+    
+console.log(s.toString());
+
+```
+
+
+
+## D3
+[[D3]] is great at visualizing trees and graphs. For example:
+
+- **Standard Tidy Tree**  
+  [![Tidy Tree](https://static.observableusercontent.com/thumbnail/df8a8a0a0b4d530ae38f5f9f4f4c6b3cbd8f2d1d5b00e7d0d6d5b5e5e5e5e5)](https://observablehq.com/@d3/tree-component)  
+  Classic hierarchical node-link diagram.  
+  [Live Observable Example](https://observablehq.com/@d3/tree-component)
+
+- **Radial Tidy Tree**  
+  [![Radial Tree](https://static.observableusercontent.com/thumbnail/7e1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1)](https://observablehq.com/@d3/radial-tree)  
+  Circular layout with depth-as-radius encoding.  
+  [Live Observable Example](https://observablehq.com/@d3/radial-tree)
+
+- **Flame Graph**  
+  ![Flame Graph](https://raw.githubusercontent.com/spiermar/d3-flame-graph/master/screenshot.png)  
+  Stack trace visualization for performance profiling.  
+  [GitHub Repo](https://github.com/spiermar/d3-flame-graph)
+
+- **Family Tree (dTree)**  
+  ![Family Tree](https://raw.githubusercontent.com/ErikGartner/dTree/master/example.png)  
+  Genealogy chart with marriage nodes and search.  
+  [GitHub Repo](https://github.com/ErikGartner/dTree)
+
+- **Phylogenetic Tree**  
+  [![Phylogenetic](https://static.observableusercontent.com/thumbnail/1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1)](https://observablehq.com/@d3/hierarchical-edge-bundling)  
+  Evolutionary relationship visualization.  
+  [Adapted Example](https://observablehq.com/@d3/hierarchical-edge-bundling)
+
+- **Collapsible Org Chart**  
+  [![Collapsible Tree](https://static.observableusercontent.com/thumbnail/8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8)](https://observablehq.com/@d3/collapsible-tree)  
+  Interactive corporate hierarchy with toggle nodes.  
+  [Live Observable Example](https://observablehq.com/@d3/collapsible-tree)
+
+- **Packed Circle Hierarchy**  
+  [![Circle Pack](https://static.observableusercontent.com/thumbnail/9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9)](https://observablehq.com/@d3/packed-circle)  
+  Nested circles representing hierarchical depth.  
+  [Live Observable Example](https://observablehq.com/@d3/packed-circle)
+
+- **Force-Directed Graph**  
+  [![Force Graph](https://static.observableusercontent.com/thumbnail/0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0)](https://observablehq.com/@d3/force-directed-graph)  
+  Physics-based network visualization.  
+  [Live Observable Example](https://observablehq.com/@d3/force-directed-graph)
+
+- [Zoomable Treemap](https://observablehq.com/@d3/zoomable-treemap) is very nice, but loses the time-dependency.
 
 ### Note: Weaknesses in the visualization
-For a few days I've been thinking about this, and working on other, more [workmanlike things](/blog.js).
 It's clear that, at least for visualization, we want the [stree](/stree.md) to report all handler invocations.
 These are currently hidden from `stree` because [combine](/combine.md) handles the recursion internally.
 
-One approach would be to further couple `stree` and `combine` such that combine does NOT resolve recursive handler calls, but instead returns the results of the handler call.
+**Rejected approach**: further couple `stree` and `combine` such that combine does NOT resolve recursive handler calls, but instead returns the results of the handler call.
 This version of combine no longer a reducer in the presence of handlers, only the combination of stree and combine would be.
 I'm reluctant to lose the generality and independence of both stree and combine to achieve this gaol.
 
-Another approach is to modify `combine` to return a list of objects generated during its topmost invocation (rooted at the "world event").
+**Another approach** modify `combine` to return a list of objects generated during its topmost invocation (rooted at the "world event").
 This would mean reserving a property of residue, say 'msgs', that basically tells the caller "what happened" during the call, aka the "message cascade".
 This complicates the visualization because now each node does not correspond to only a world event - they also describe elements of the message cascade.
 `combine` can differentiate between external and internal calls by the presence of the 'msgs' property in the residue: if it's not there, it's a world event.
@@ -26,7 +87,7 @@ This is the first iteration of the visualation code.
 It assumes that every rendered elt is a node in the stree.
 It uses the 'clone and scatter' approach to rendering.
 ```js
-import {svg, tryToStringify} from '/simpatico.js';
+import {svg, tryToStringify} from '/s/lib/simpatico.js';
 
 const html1 = (svgClass='visualize-stree', inspectorClass ='residue-inspector', colorKeyClass = 'color-key') => `
 <p>key: <span class="${colorKeyClass}"></span></p>
@@ -237,8 +298,8 @@ Here is an example of what it does
 <div id="arithmetic-render"></div>
 ```
 ```js
-import {arithmeticOps} from "/stree-examples.js";
-import {stree, svg} from '/simpatico.js';
+import {arithmeticOps} from "./stree-examples.js";
+import {stree, svg} from '/s/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render');
 const s = stree(arithmeticOps);
@@ -252,7 +313,7 @@ It makes life easier to move away from "clone and scatter" and instead use simpl
 
 
 ```js
-import {svg, tryToStringify} from '/simpatico.js';
+import {svg, tryToStringify} from '/s/lib/simpatico.js';
 
 const html1 = (svgClass='visualize-stree', inspectorClass ='residue-inspector', colorKeyClass = 'color-key') => `
 <p>key: <span class="${colorKeyClass}"></span></p>
@@ -456,8 +517,8 @@ window.renderStree2 = renderStree;
 <div id="arithmetic-render2"></div>
 ```
 ```js
-import {arithmeticOps} from "/stree-examples.js";
-import {stree, svg} from '/simpatico.js';
+import {arithmeticOps} from "./stree-examples.js";
+import {stree, svg} from '/s/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render2');
 const s = stree(arithmeticOps);
@@ -470,9 +531,9 @@ Now that it's working right, lets make sure the shared code is okay.
 <div id="arithmetic-render3"></div>
 ```
 ```js
-import {arithmeticOps} from "/stree-examples.js";
-import {renderStree} from "/simpatico.js";
-import {stree, svg} from '/simpatico.js';
+import {arithmeticOps} from "./stree-examples.js";
+import {renderStree} from "./stree-visualization.js";
+import {stree, svg} from '/s/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render3');
 const s = stree(arithmeticOps);
