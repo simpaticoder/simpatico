@@ -107,23 +107,24 @@ Also, we add a 'msg' entry that describes a typical message for this handler:
 
 ```js
 import {combine} from "/s/lib/combine.js";
+
 // This handler returns an array of 2 objects:
 const inc = {handle: (core, msg) => [{a: 1}, {b: 2}]};
 assertEquals([{a: 1}, {b: 2}], inc.handle());
 
-// the core is a handlers object, plus some state, called residue
+// the simpaticore core is a handlers object, plus some state, called residue
 // in this case the residue is initialized to {a:10, b:20}
-const core = {handlers: {inc}, a: 10, b: 20};
+const simpaticore = {handlers: {inc}, a: 10, b: 20};
 
 // call the handler with a message
 const msg = {handler: 'inc'};
 
 // check the effect on residue
-assertEquals({handlers: {inc}, a: 11, b: 22}, combine(core, msg), 'shows a side-effect on residue.');
-assertEquals({handlers: {inc}, a: 10, b: 20}, core, 'core is untouched');
-assertEquals({handlers: {inc}, a: 11, b: 22}, combine(core, msg));
-assertEquals({handlers: {inc}, a: 12, b: 24}, combine(core, msg, msg), 'increments compound');
-assertEquals({handlers: {inc}, a: 13, b: 26}, combine(core, msg, msg, msg));
+assertEquals({handlers: {inc}, a: 11, b: 22}, combine(simpaticore, msg), 'shows a side-effect on residue.');
+assertEquals({handlers: {inc}, a: 10, b: 20}, simpaticore, 'simpaticore is untouched');
+assertEquals({handlers: {inc}, a: 11, b: 22}, combine(simpaticore, msg));
+assertEquals({handlers: {inc}, a: 12, b: 24}, combine(simpaticore, msg, msg), 'increments compound');
+assertEquals({handlers: {inc}, a: 13, b: 26}, combine(simpaticore, msg, msg, msg));
 ```
 
 The handler above takes no arguments and gives a constant result.
@@ -141,7 +142,7 @@ Some prototypes used this structure to keep residue separate from handlers.
 I've avoided doing it this way, but I'm not sure why.
 It *is* annoying to separate them!
 ```js
-    const core = {handlers: {}, residue:{a:1, b:2}};
+    const simpaticore = {handlers: {}, residue:{a:1, b:2}};
 ```
 _________________________________________________________
 ## Assertion handler
