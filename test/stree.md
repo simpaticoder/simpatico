@@ -1,10 +1,15 @@
 # STree
 
-Simpatico Tree, Summation Tree, or STree, is an n-arry tree which associates a _residue_ with each node, defined as a reduction from root to that node. The central operation of the stree is `add()`. The stree supports some operations, and it's nodes (returned by add) support others.
+Simpatico Tree, Summation Tree, or STree, is an n-arry tree which associates a _residue_ with each node, defined as a reduction from root to that node.
 
-It is difficult to visualize trees in text. Here is one compact way:
+An stree can be used for many things - a standard n-arry tree, a trie (under concatenation), and a visualizable multiverse (under [[combine]]).
 
-```
+## Visualization
+
+### Textual
+This is a textual representation of a small, simple stree with 8 values:
+
+```text
 - a b c :r(a,b,c)
 B d e f :r(a,b,d,e,f)
 B g h   :r(a,b,g,h)
@@ -13,17 +18,16 @@ E i     :r(a,b,d,e,i)
 
 In this notation we let values be lowercase letters, and the letters are assigned in the order the value is added. In the above case the stree has received 7 values via `add()`, indicated by letters `a`-`i`. The first row has no parent, indicated with `-`. The second row is parented at the second value, indicated by capital `B`. The third row is also parented at the second value. The fourth row is parented at the fourth value, which is `E`. Each row has an additional column, the row residue, computed as a reduction from root to the end of the row, indicated by `:r()` and containing ALL values from root. Note that ALL values are associated with a residue, but this is hard to notate. For example, value `d` is associated with residue `:r(a,b,d)`. But we show only the row residue.
 
-To produce this (contrived) example in real code, we let each value be a single character, let the reduction be concatenation. This is not how you'd normally use `stree`, but it may be illustrative:
+We can write code that almost looks like this representation if we let each value be a single character, let the reduction be concatenation. This is not how you'd normally use `stree`, but it may be illustrative:
 ```js
 import {stree, formatSTree} from '/s/lib/simpatico.js';
 
-// Define our reducer and values a-i
+// Define our reducer and values a through i
 const concat = (a, b) => a + b;
 const a = 'a', b = 'b', c = 'c', d = 'd', e = 'e',
       f = 'f', g = 'g', h = 'h', i = 'i';
 
 // Build up the stree, keeping a reference to every node, n0-n8
-// n0 uniquely references the stree itself; often called 's'. 
 // Each row/branch of assignments cooresponds to a row in the stree, r0-r3, assigned to the last node in the row.
 const s = stree(a, concat);
 const n0 = s.root,    n1 = n0.add(b), n2 = n1.add(c), r0 = n2;
@@ -41,7 +45,7 @@ log({r0: r0.residue, r1: r1.residue, r2: r2.residue, r3: r3.residue});
     "r3": "abdei"
  */
 
-// Alternatively, get the residues for every row:
+// Alternative way to get the residues for every row:
 log(s.residues());
 // Output: [
 //     "abc",
@@ -61,13 +65,17 @@ E i :r(a,b,d,e,i)
 
 ```
 
-In this example, the stree forms a trie. Reduce under `Object.assign()` for some interesting effects. Reduce with `lodash.merge()` to support deep merging. Reduce objects under `combine()` to get both deep merging and function invocation (the Simpatico default). With function invocation, the reducer is technically a "transducer".
+In this example, the stree forms a trie. 
+Reduce under `Object.assign()` to see how different objects relate to each other. 
+Reduce with something like `lodash.merge()` to support deep merging. 
+Reduce objects under `combine()` to use both deep merging and function invocation (the Simpatico default). 
+With function invocation, the reducer technically becomes a [transducer](https://www.youtube.com/watch?v=6mTbuzafcII).
 
 # API
 
 ## STreeNode
 
-- **`value:`** the input
+  - **`value:`** the input
   - **`node parent:`** reference to the parent node
   - **`value residue:`** (optional) cached result of reduction-from-root to this node
   - **`int branchIndex:`** the branch, or row, in which this node lives
@@ -81,7 +89,7 @@ In this example, the stree forms a trie. Reduce under `Object.assign()` for some
 
 ## STree
 
-- **`stree(value={}, fn reducer=combine, fn summarize=null):`** create a new stree with root value, residue reducer, and summarize reducer. Returns an object with the following members.
+  - **`stree(value={}, fn reducer=combine, fn summarize=null):`** create a new stree with root value, residue reducer, and summarize reducer. Returns an object with the following members.
   - **`node add(value, node=lastNode):`** create a new node with node as parent; if node not given, defaults to last node.
   - **`node addAll(arr, node=lastNode):`** convenience, add all values in array with node as parent
   - **`[node] nodePath(node):`** return an array of nodes from root to a given node
@@ -98,9 +106,9 @@ In this example, the stree forms a trie. Reduce under `Object.assign()` for some
 ## STree Utilities
 Deserialization methods. It would be nice to support these in the `stree()` constructor at some point. 
 
-  - **`fromArray(arr, reducer, summarize):`** deserialize the stree from an array of values interleaved with 'parent' integers (e.g., as produced by stree.toArray())
-  - **`fromString(str, reducer, summarize):`** deserialize the stree from a string, assumed to be produced by stree.toString() 
-  - **`formatSTree(stree):`** produce a compact string representation similar to the above
+  - **`stree fromArray(arr, reducer, summarize):`** deserialize the stree from an array of values interleaved with 'parent' integers (e.g., as produced by stree.toArray())
+  - **`stree fromString(str, reducer, summarize):`** deserialize the stree from a string, assumed to be produced by stree.toString() 
+  - **`str formatSTree(stree):`** produce a compact string representation
 
 # Tests
 
@@ -162,5 +170,4 @@ as.equals(s.summary, undefined);
 
 // check leaf behavior
 as.equals(n6, n0.getLeaf());
-
 ```
