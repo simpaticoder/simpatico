@@ -17,6 +17,7 @@ import { combine } from './lib/combine.js';
 import { stree } from './lib/stree.js';
 import { buildHtmlFromLiterateMarkdown } from './lib/litmd.js';
 import { findRecentFile } from './lib/find-recent-file.js';
+import fileConfig from './private/config.js';
 
 // ================================================================
 // Configuration and Initialization
@@ -30,7 +31,7 @@ class Reflector {
         this.connections = stree({});
         this.config = this.processConfig();
 
-        info(`reflector.js [${JSON.stringify(this.elide(this.config), null, 2)}]`);
+        info(`reflector.js [${JSON.stringify(this.config, null, 2)}]`);
     }
 
     async initialize() {
@@ -93,14 +94,14 @@ class Reflector {
         };
 
         // Combine all configuration sources with type casting
-        const config = combine([baseConfig, envConfig, argConfig, measured], (a, b) => {
+        const config = combine([baseConfig, fileConfig, envConfig, argConfig, measured], (a, b) => {
             if (typeof a === 'number' && typeof b === 'number') return b;
             if (typeof a === 'number' && typeof b === 'string') return +b;
             if (typeof a === 'boolean' && typeof b === 'string') return b === 'true';
         });
         config.baseUrl = config.useTls ?
-            `https://${config.hostname}:${config.https}` :
-            `http://${config.hostname}:${config.http}`;
+            `https://${config.hostname}${config.https === 443 ? '' : `:${config.https}`}` :
+            `http://${config.hostname}${config.http === 80 ? '' : `:${config.http}`}`;
 
         // Add litmd configuration
         config.litmd = {
@@ -118,19 +119,15 @@ class Reflector {
 
         if (this.DEBUG) {
             debug('DEBUG=true Here are all configs:',
-                '\nbaseConfig', this.elide(baseConfig),
-                '\nenvConfig', this.elide(envConfig),
-                '\nmeasured', this.elide(measured),
-                '\nconfig', this.elide(config),
+                '\nbaseConfig', baseConfig,
+                '\nfileConfig', fileConfig,
+                '\nenvConfig', envConfig,
+                '\nmeasured', measured,
+                '\nconfig', config,
             );
         }
 
         return config;
-    }
-
-    elide(obj, hide) {
-        hide = hide || this.hiddenConfigFields;
-        return this.DEBUG ? obj : combine(obj, hide);
     }
 
     // ================================================================
@@ -142,65 +139,57 @@ class Reflector {
         let httpsServer;
         const result = { http: 0, https: 0, ws: 0 };
 
-        try {
-            // Always bind to HTTP - either for redirects or direct file serving
-            const httpLogic = this.config.useTls ?
-                (req, res) => this.httpRedirectServerLogic(req, res) :
-                this.fileServerLogic();
 
-            const httpOptions = {
-                keepAlive: 100,
-                headersTimeout: 100
-            };
+        // Always bind to HTTP - either for redirects or direct file serving
+        const httpLogic = this.config.useTls ?
+            (req, res) => this.httpRedirectServerLogic(req, res) :
+            this.fileServerLogic();
 
-            httpServer = http.createServer(httpOptions, httpLogic).listen(this.config.http);
-            result.http = this.config.http;
-        } catch (e) {
-            error('abort: problem spinning up http server', e);
-            throw e;
-        }
+        const httpOptions = {
+            keepAlive: 100,
+            headersTimeout: 100
+        };
+
+        httpServer = http.createServer(httpOptions, httpLogic).listen(this.config.http);
+        result.http = this.config.http;
+
 
         // Create HTTPS server if TLS is enabled
         if (this.config.useTls) {
-            try {
-                const cert = fs.readFileSync(this.config.cert);
-                const key = fs.readFileSync(this.config.key);
+            const cert = fs.readFileSync(this.config.cert);
+            const key = fs.readFileSync(this.config.key);
 
-                httpsServer = https.createServer(
-                    { key, cert },
-                    this.fileServerLogic()
-                ).listen(this.config.https);
+            httpsServer = https.createServer({ key, cert }, this.fileServerLogic()).listen(this.config.https);
+            result.https = this.config.https;
 
-                result.https = this.config.https;
-            } catch (e) {
-                error('unable to start ssl/tls server; either bind to localhost or generate a self-signed cert according to devops/deploy.sh', e);
-                throw e;
-            }
+            // Reload certificates if they change
+            chokidar.watch([this.config.cert, this.config.key], {
+                persistent: true,
+                ignoreInitial: true
+            }).on('change', path => {
+                log(`Certificate file changed: ${path}`);
+                const newContext = {
+                    key: fs.readFileSync(this.config.key),
+                    cert: fs.readFileSync(this.config.cert)
+                };
+                httpsServer.setSecureContext(newContext);
+                log('Certificates reloaded successfully');
+            });
         }
 
         // Create WebSocket server
-        try {
-            const wss = new WebSocketServer({
-                server: this.config.useTls ? httpsServer : httpServer
-            });
-
-            wss.on('connection', (ws) => this.chatServerLogic(ws));
-            result.ws = this.config.useTls ? this.config.https : this.config.http;
-        } catch (e) {
-            error('abort: problem spinning up ws server', e);
-            throw e;
-        }
+        const wss = new WebSocketServer({
+            server: this.config.useTls ? httpsServer : httpServer
+        }).on('connection', this.chatServerLogic);
+        result.ws = this.config.useTls ? this.config.https : this.config.http;
 
         return result;
     }
 
     dropProcessPrivs(user) {
-        try {
-            process.seteuid(user);
-            info('dropProcessPrivs succeeded', user);
-        } catch (e) {
-            warn('dropProcessPrivs failed', user, e);
-        }
+        process.setuid(user);
+        // process.setgid(user);
+        info('dropProcessPrivs succeeded', user);
     }
 
     // ================================================================
