@@ -24,25 +24,8 @@ A generalization of `Object.assign` that supports reduction, adding/removing pro
 To use the library in node, omit the script tags and set `{"type": "module"}` in `package.json`.
 Note: I'd like to support npm `require()` as well, however that requires a UMD wrapping tool like Webpack, which I'm unwilling to add at this point.
 
-Simpatico is not yet published to npm, but for now a simple `wget` will work:
-```bash
-  $ curl -O https://raw.githubusercontent.com/javajosh/simpatico/master/combine2.js
-```
-Within [litmd](/lit.md) code snippets served by the [reflector](/reflector.md) you can omit this particular import statement.
-(If you don't include your own imports, default imports will apply):
-
-```js
-import {combine} from '/s/lib/combine.js';
-
-assertEquals(3, combine(1, 2));
-```
-This code has executed in your browser context.
-It executed after your page finished loading.
-There may be output in the console (accessed via the dev tools, which in most browsers is `F12`).
-In fact, every code snippet on this page executed already!
-
 _________________________________________________________
-# Combining data objects together
+# Combining data objects 
 Combine's action varies according to the types of its arguments.
 Numbers add. Most other scalars "replace":
 
@@ -51,13 +34,10 @@ import {combine} from "/s/lib/combine.js";
 
 assertEquals('bar', combine('foo', 'bar'), 'strings replace');
 assertEquals(false, combine(true, false), 'booleans replace');
-let a = () => {
-}, b = () => {
-};
+let a = () => {}, b = () => {};
 assertEquals(b, combine(a, b), 'functions replace');
 ```
-For objects, combine mostly behaves just like `Object.assign`.
-They both merge keys:
+For objects, combine mostly behaves just like `Object.assign`, but recursive. See [lodash merge()](https://lodash.com/docs/4.17.15#merge) for another example of this behavior.
 
 ```js
 import {combine} from "/s/lib/combine.js";
@@ -68,15 +48,18 @@ assertEquals({a: 1, b: 2}, Object.assign({}, {a: 1}, {b: 2}), 'Object.assign mer
  `Object.assign` is shallow, `combine()` is deep:
 
 ```js
-import {combine, DELETE} from "/s/lib/combine.js";
+import {combine} from "/s/lib/combine.js";
 
-assertEquals({a: {b: 2}}, combine({a: {b: 1}}, {a: {b: 1}}), 'combine is deep');
+assertEquals({a: {b: 2}}, combine(          {a: {b: 1}}, {a: {b: 1}}), 'combine is deep');
 assertEquals({a: {b: 1}}, Object.assign({}, {a: {b: 1}}, {a: {b: 1}}), 'Object.assign is shallow');
 ```
+
 ## Deleting
 Ideally we could use a type like 'undefined' to delete object properties.
 However javascript cannot differentiate between missing and undefined properties.
-Null indicates zero.
+Null indicates 'zero'. Each JavaScript type has it's own zero, so the zeroes for `[number, string, object, array]` are  `0, "", {}, []`.
+
+
 A `Symbol` would work, but cannot be easily de/serialized. (We might do `Symbol(DELETE)`, however)
 So we pick a special string and export it from `combine`.
 
@@ -98,8 +81,10 @@ assertEquals([ {a:1}, {b:2} ], inc.handle());
 
 Handlers are how you program cores in Simpatico.
 Handlers are objects with a `handle` property, which should be a function that takes two arguments, `core` and `msg`.
-The core is the target, or destination, of the message.
+The core is the target, or destination, of the message. It is similar to `this` in some javascript contexts.
 The result is an array of objects that describe how the core should change.
+
+> In some places the `core` argument is called `ctx` for "context". 
 _________________________________________________________
 ## handle : (core, msg) => [ ]
 Handlers take two arguments, the target and the message, in the first and second position respectively.
@@ -112,9 +97,10 @@ import {combine} from "/s/lib/combine.js";
 const inc = {handle: (core, msg) => [{a: 1}, {b: 2}]};
 assertEquals([{a: 1}, {b: 2}], inc.handle());
 
-// the simpaticore core is a handlers object, plus some state, called residue
+// the simpaticore is a handlers object, plus some state, called residue
 // in this case the residue is initialized to {a:10, b:20}
-const simpaticore = {handlers: {inc}, a: 10, b: 20};
+const residue = {a:10, b:20}
+const simpaticore = {handlers: {inc}, ...residue};
 
 // call the handler with a message
 const msg = {handler: 'inc'};
@@ -126,28 +112,30 @@ assertEquals({handlers: {inc}, a: 11, b: 22}, combine(simpaticore, msg));
 assertEquals({handlers: {inc}, a: 12, b: 24}, combine(simpaticore, msg, msg), 'increments compound');
 assertEquals({handlers: {inc}, a: 13, b: 26}, combine(simpaticore, msg, msg, msg));
 ```
+> Note that while a `handle()` function returns an array of mutations to residue, the `combine()` function returns a new Simpaticore.
 
 The handler above takes no arguments and gives a constant result.
-We leave the `(core, msg)` named arguments for consistency, even though we're not using them.
+We leave the `(core, msg)` function signature for consistency, even though we're not using them.
 It's a dual counter, where `a` is incremented by 1, and `b` by 2.
 We initialize both `a` and `b` to show there is interaction between the result of `inc` and current core state.
 
-### Similarity to apply()
-The handler signature is similar to `Function.prototype.apply()`.
-The first argument, the "`thisArg`" is the core, the context, the second argument, the args, is the message itself.
-See: [JavaScript Function specification](https://tc39.es/ecma262/multipage/fundamental-objects.html#sec-function.prototype.apply)
+> **Similarity to apply()**: The handler signature is similar to js-native `Function.prototype.apply(thisArg, ...args)`.
+> The first argument, the "`thisArg`" is the core, the context, the second argument, the args, is the message itself.
+> See: [JavaScript Function specification](https://tc39.es/ecma262/multipage/fundamental-objects.html#sec-function.prototype.apply)
 
 ### Aside: Use explicit residue?
-Some prototypes used this structure to keep residue separate from handlers.
-I've avoided doing it this way, but I'm not sure why.
-It *is* annoying to separate them!
+It might seem like a good idea to make the residue explicit, as below. However, I've found in practice this is uncomfortable to work with.
+
 ```js
     const simpaticore = {handlers: {}, residue:{a:1, b:2}};
 ```
 _________________________________________________________
 ## Assertion handler
-Before moving on its useful to define an "<span title="This was successful and was extracted into handlers.js">assertion handler</span>":
-> **Note:** This handler is exposed by `handlers.js`
+Before moving on its useful to define an "assertion handler". 
+This handler looks more complex because it has more fields in the handler itself, which are only convenience functions to make installing and using it easier.
+
+> **Note:** This handler is exposed by [`handlers.js`](/s/lib/handlers.js).
+
 ```js
 import {combine} from "/s/lib/combine.js";
 
@@ -160,7 +148,7 @@ const assertHandlerDemo = {
   handle: (core, msg) => {
     Object.entries(msg).forEach(([key, msgValue]) => {
       if (key === 'handler' || key === 'parent') return; // skip the handler name itself
-      if (core.hasOwnProperty(key)) assertEquals(msgValue, core[key]);
+      if (core.hasOwn(key)) assertEquals(msgValue, core[key]);
       else throw 'core is missing asserted property ' + key;
     });
     return [{}];
@@ -180,14 +168,17 @@ combine(
   {a: 1, handler: 'assert'},
 );
 
-// 2. the less brittle, shorter way to call the assert handler:
-assertThrows(() => combine(assertHandlerDemo.install(), {a: 1}, has({a: 2})));
+// 2. the shorter way to call the assert handler:
+assertThrows(() => 
+    combine(assertHandlerDemo.install(), {a: 1}, has({a: 2}))
+);
 combine(assertHandlerDemo.install(), {a: 1}, has({a: 1}));
 
 // 3. A nice call and response pattern using the shorter form:
 combine(assertHandlerDemo.install(),
   {a: 1}, has({a: 1}),
-  {c: 'foo'}, has({c: 'foo'}),
+  {c: 'foo'}, has({c: 'foo'}), 
+  ...etc
 );
 ```
 The object structure is primary - the rest of it is just window dressing.
@@ -253,14 +244,13 @@ const logHandlerDemo = {
 
 
 const has = assertHandler.call;
-const loggy = logHandlerDemo.call;
+const logh = logHandlerDemo.call;
 const ops = [
   assertHandler.install(),
-  logHandlerDemo.install(),
-  has({debug: true, lastOutput: ''}),
-  {a: 10, b: 20}, loggy('prints the core'), has({lastOutput: 'prints the core'}),
-  {debug: false}, loggy('does not print'), has({lastOutput: 'prints the core'}),
-  {debug: true}, loggy('prints again'), has({lastOutput: 'prints again'}),
+  logHandlerDemo.install(), has({debug: true, lastOutput: ''}),
+  {a: 10, b: 20}, logh('prints the core'), has({lastOutput: 'prints the core'}),
+  {debug: false}, logh('does not print'), has({lastOutput: 'prints the core'}),
+  {debug: true}, logh('prints again'), has({lastOutput: 'prints again'}),
   ...etc
 ];
 combine(ops);
@@ -292,7 +282,6 @@ combine(ops);
 ```
 The handler overwriting feature is key to enabling *type versioning* in the [stree](/kata/stree.md).
 
-Also, I pity the linter that attempts to [lint](/kata/lint.md) this code.
 _________________________________________________________
 ## Handlers call each other
 
@@ -313,7 +302,8 @@ const h2 = {
 };
 
 const ops = [
-  {handlers: {h1, h2, assert: assertHandler}},
+  asserHandler.install(),
+  {handlers: {h1, h2}},
   {a: 0, b: 0}, has({a: 0, b: 0}),
   h1.call(), has({a: 1, b: 1}), // The only way that b increments is if h2 is called; hence h2 been called indirectly.
   h1.call(), has({a: 2, b: 2}),
@@ -321,6 +311,7 @@ const ops = [
 ];
 combine(ops);
 ```
+
 # Handlers that return non-array results are treated as an error
 A non-array return value is treated as a recoverable error.
 Because `combine` is a pure function, no modification of the core occurs.
