@@ -14,16 +14,16 @@ Prerequisites:
 > **Tip:** Install requirements with [mise](https://mise.jdx.dev/) with `curl https://mise.run | sh` and then `mise use node@latest pnpm@latest` within your project directory to easily meet the runtime requirements without affecting your global toolchain. Mise (pronounced 'meez') is a modern tool that replaces and improves many version managers like `nvm`, `rvm`, and `sdkman`.
 
 ```bash
+alias p=pnpm
 mkdir mywebsite && cd mywebsite
 # mise use node@latest pnpm@latest
-npm init
-npm add @simpaticoder/simpatico
-npm install
-npx simpatico
+p init
+p install simpatico
+p simpatico # or `npx simpatico`
 ```
-Additionally you may run `simpatico` from your own `package.json` scripts instead of with `npx simpatico`:
+You may also run `simpatico` from your own `package.json` scripts:
 ```text
-{ //package.json
+{ // mywebsite/package.json
   ...
   "scripts": {
     "start": "simpatico"
@@ -31,13 +31,52 @@ Additionally you may run `simpatico` from your own `package.json` scripts instea
   ...
 }
 ```
-Invoke this script with `npm start`. 
+Invoke this script with `pnpm start`. 
 
 At this point you have a running simpatico server and can add/remove/modify files and they will be served.
 
-> **Note:** These installation instructions use `npm` however they are equally valid for `pnpm` and `yarn`. Other node-like runtimes like `bun` or `deno` may also work, but this is untested. Simpatico uses `node` and `pnpm` for its development. 
+> **Note:** These installation instructions use `pnpm` however they are equally valid for `npm` and `yarn`. Other node-like runtimes like `bun` or `deno` may also work, but this is untested. Simpatico uses `node` and `pnpm` for its development. 
 
-Docs TODO:
-1. Explain TLS setup and maintenance
-2. Describe common use cases (regular webserver; blog; simple local codepen)
-3. Detailed documentation of all configuration options.
+# TLS/SSL - make https urls work
+
+1. Create your own root CA 
+2. Pick a domain-name, use the root CA to generate your own `<domain>.crt.pem` and `<domain>.key.pem` files 
+3. Run `simpatico` with an argument that points to the generated certificate files
+4. Install the root CA in all testing browsers on all devices (e.g. nav to `about:settings`, search `certificates`, then follow the UI to add `~/.ssh/RootCA`)
+
+The `make-certs` script will generate the correct files and output a `simpatico` command line that will work for your mode of operation
+(testing/production + privileged/unprivileged ports). Here is an example generating certs for domain `simpatico.localhost`:
+
+```bash
+ alias p=pnpm
+ p make-certs simpatico.localhost
+ # Lots of descriptive output describing what to do next..
+ # ...run on the default unprivileged ports
+ p simpatico '{"cert":"./simpatico.localhost.crt.pem","key":"./simpatico.localhost.key.pem", "useTls":true}'
+```
+
+## Privileged execution
+`simpatico` can bind to ports < 1024 and drop privileges immediately if run as root via `sudo`.
+Both `node` and `pnpm` must be available to root and on its path, which is non-interactive (so don't bother with `/root/.bashrc`)
+Assuming you've installed `mise` as root, add its tools to the non-interactive root path like so:
+
+```bash
+sudo visudo
+# Add mise/shims 
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin:/root/.local/share/mise/shims"
+```
+Now execute as root, binding to privileged ports:
+
+```bash
+sudo pnpm simpatico '{"cert":"./simpatico.localhost.crt.pem","key":"./simpatico.localhost.key.pem", "useTls":true, "http":80, "https":443, "ws":443, "runAsUser":"alice"}'
+```
+
+> Domains ending in `.localhost` do not need an entry in `/etc/hosts` to be served locally. Other domains either need an entry or a static ip and dns entry in your router.
+> Windows WSL2 users may need to connect the WSL loopback address to the external address: `netsh interface portproxy add v4tov4 listenport=443 listenaddress=0.0.0.0 connectport=443 connectaddress=192.168.X.X`
+
+> **Aside**: Why not just proxy behind `nginx` or `caddy`? You can. But you also have the option to run simpatico as a single stand-alone process,
+> and I think that option is valuable. We may run `node` as root, but we mitigate that by dropping privileges asap. 
+> We also do not want to run `mise` and `pnpm` as root, but again, we do so only briefly. 
+> `apt install nginx` is highly trusted mainly because it is well-known, but not without (supply chain, operational) risk.
+> A strong argument for the conventional proxy is it's enormous feature-set - nginx can serve many domains, for example, where simpatico cannot.
+> Nginx is far more standards compliant; simpatico does the bare minimum HTTP/1.1.

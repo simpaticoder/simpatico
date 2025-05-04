@@ -14,7 +14,8 @@
   },
   "bin": {
     "simpatico": "./server.js",
-    "blog": "./lib/blog.js"
+    "blog": "./lib/blog.js",
+    "make-certs": "./make-certs.sh"
   },
   "scripts": {
     "test": "node ./test/test.js",

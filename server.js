@@ -12,12 +12,11 @@ import { fileURLToPath } from 'node:url';
 import WebSocket, { WebSocketServer } from 'ws';
 import chokidar from 'chokidar';
 
-import { info, log, error, debug, mapObject, hasProp, parseObjectLiteralString, peek } from './lib/core.js';
+import { info, log, error, debug, mapObject, hasProp, peek } from './lib/core.js';
 import { combine } from './lib/combine.js';
 import { stree } from './lib/stree.js';
 import { buildHtmlFromLiterateMarkdown } from './lib/litmd.js';
 import { findRecentFile } from './lib/find-recent-file.js';
-import fileConfig from './private/config.js';
 
 // ================================================================
 // Configuration and Initialization
@@ -35,20 +34,16 @@ class Reflector {
     }
 
     async initialize() {
+        info(`Node.js version: ${process.version} for platform: ${os.platform()}`);
         this.initFileWatchingCacheInvalidator();
-
         const bindStatus = this.bindToPorts();
         info('bound', bindStatus);
-        info(`Node.js version: ${process.version} for platform: ${os.platform()}`);
 
-        // Drop privileges if configured
         if (this.config.runAsUser) {
             this.dropProcessPrivs(this.config.runAsUser);
         }
 
-        // Print welcome message
-        info("File server format is [iso date] [req.socket.remoteAddress] [req.headers[user-agent]] [req.url] (? => [normalized url)");
-        info(`Initialization complete. Open ${this.config.baseUrl}/${path.relative(process.cwd(), findRecentFile())} or ${this.config.baseUrl}/acceptance}`);
+        info(`Initialization complete. Open ${this.config.baseUrl}/${path.relative(process.cwd(), findRecentFile())} or ${this.config.baseUrl}/test}`);
 
         if (process.send) process.send(this.config);
     }
@@ -79,7 +74,7 @@ class Reflector {
 
         // Command line arguments override environment variables
         const hasArgument = process.argv.length >= 3;
-        const argConfig = hasArgument ? parseObjectLiteralString(process.argv[2]) : {};
+        const argConfig = hasArgument ? JSON.parse(process.argv[2]) : {};
 
         // Add package information
         const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
@@ -94,7 +89,7 @@ class Reflector {
         };
 
         // Combine all configuration sources with type casting
-        const config = combine([baseConfig, fileConfig, envConfig, argConfig, measured], (a, b) => {
+        const config = combine([baseConfig, envConfig, argConfig, measured], (a, b) => {
             if (typeof a === 'number' && typeof b === 'number') return b;
             if (typeof a === 'number' && typeof b === 'string') return +b;
             if (typeof a === 'boolean' && typeof b === 'string') return b === 'true';
@@ -120,7 +115,6 @@ class Reflector {
         if (this.DEBUG) {
             debug('DEBUG=true Here are all configs:',
                 '\nbaseConfig', baseConfig,
-                '\nfileConfig', fileConfig,
                 '\nenvConfig', envConfig,
                 '\nmeasured', measured,
                 '\nconfig', config,
@@ -150,7 +144,7 @@ class Reflector {
             headersTimeout: 100
         };
 
-        httpServer = http.createServer(httpOptions, httpLogic).listen(this.config.http);
+        httpServer = http.createServer(httpOptions, httpLogic).listen(this.config.http, "0.0.0.0");
         result.http = this.config.http;
 
 
@@ -159,7 +153,7 @@ class Reflector {
             const cert = fs.readFileSync(this.config.cert);
             const key = fs.readFileSync(this.config.key);
 
-            httpsServer = https.createServer({ key, cert }, this.fileServerLogic()).listen(this.config.https);
+            httpsServer = https.createServer({ key, cert }, this.fileServerLogic()).listen(this.config.https, "0.0.0.0");
             result.https = this.config.https;
 
             // Reload certificates if they change
