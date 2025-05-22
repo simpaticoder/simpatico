@@ -148,7 +148,7 @@ const assertHandlerDemo = {
   handle: (core, msg) => {
     Object.entries(msg).forEach(([key, msgValue]) => {
       if (key === 'handler' || key === 'parent') return; // skip the handler name itself
-      if (core.hasOwn(key)) assertEquals(msgValue, core[key]);
+      if (core.hasOwnProperty(key)) assertEquals(msgValue, core[key]);
       else throw 'core is missing asserted property ' + key;
     });
     return [{}];
@@ -302,7 +302,7 @@ const h2 = {
 };
 
 const ops = [
-  asserHandler.install(),
+  assertHandler.install(),
   {handlers: {h1, h2}},
   {a: 0, b: 0}, has({a: 0, b: 0}),
   h1.call(), has({a: 1, b: 1}), // The only way that b increments is if h2 is called; hence h2 been called indirectly.

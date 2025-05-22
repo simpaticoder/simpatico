@@ -162,27 +162,8 @@ Functional, non-mutating versions of the built in array functions.
   as.same([{}, {}, {}, {}])
 
 ```
-## parseObjectLiteralString
-Used for [reflector](reflector.md) arguments
 
-```js
-
-  const parsed = core.parseObjectLiteralString(`{http:80, https:443, ws:8081, host:simpatico.io,
-    cert:/etc/letsencrypt/live/simpatico.io/fullchain.pem,
-    key:/etc/letsencrypt/live/simpatico.io/privkey.pem
-  }`)
-  // Doesn't do type conversion, but that's okay
-  as.int(parsed.http)
-  // Only take strings
-  assertThrows(() => core.parseObjectLiteralString())
-  assertThrows(() => core.parseObjectLiteralString({}))
-  // You must not have spaces between key, colon and value. I'd like to relax this, but am not a regexpert.
-  // This also means that you can't have a value with a leading space, which is annoying
-  assertThrows(() => core.parseObjectLiteralString(`{http :80, https:443}`))
-
-  ```
 ## De/Serialization
-
 
 ```js
   // Lets test the function detecting regex.
