@@ -12,7 +12,7 @@ Go to previous tab               Alt + ←
 Go to tab by number              Alt + [1-9]
 Close pane                       Alt + x
 Close tab                        Alt + w
-Detach session                   Ctrl + g, then d
+Detach session                   Ctrl + o, then d
 Open command palette             Ctrl + g
 
 Toggle floating pane             Alt + f
