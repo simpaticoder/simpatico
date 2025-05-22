@@ -307,7 +307,7 @@ class Reflector {
                 }));
                 return;
             }
-            if (this.config.debug) console.log({fileName});
+            // if (this.config.debug) log({fileName});
             // Send successful response
             const respondWithData = data => {
                 res.writeHead(
@@ -335,8 +335,8 @@ class Reflector {
                     new Date().toISOString(),
                     req.socket.remoteAddress.replace(/^.*:/, ''),
                     req.headers["user-agent"].substr(0, 20),
-                    req.url,
-                    (normalized ? '=>' + fileName : ''),
+                    req.url, "\n",
+                    fileName,
                 );
             };
 
@@ -363,7 +363,7 @@ class Reflector {
             } else {
                 // Cache miss, read from disk
                 if (this.config.useCache) {
-                    log('cache miss for', fileName);
+                    console.log('\tcache miss for', req.url);
                 }
 
                 try {
@@ -444,7 +444,7 @@ class Reflector {
 
         return (isFile) ?
             [path] :
-            [path + '.md', path + '.html', path + '/index.md', path + '/index.html'];
+            [path + '.md', path + '.html', path + '/index.md', path + '/index.html', path + '/README.md'];
     }
 
     readProcessCache(fileName) {
