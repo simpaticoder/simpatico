@@ -8,14 +8,13 @@
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'>
   <rect width='1' height='1' fill='DodgerBlue' />
 </svg>"/>
-<script src="{{specialPathPrefix}}lib/testable.js" type="module"></script>
-<script src="{{specialPathPrefix}}lib/litmd-header.js" type="module"></script>
+
 
 <title>{{title}}</title>
 
 <meta name="keywords" content="{{keywords}}">
 <meta name="author" content="{{author}}">
-<link rel="stylesheet" type="text/css" href="{{specialPathPrefix}}vendor/github-markdown.css">
+<link rel="preload" as="style" type="text/css" href="{{specialPathPrefix}}vendor/github-markdown.css">
 <style>
     .markdown-body {
         box-sizing: border-box;
@@ -84,6 +83,8 @@
 
 </style>
 <link rel="stylesheet" href="{{specialPathPrefix}}vendor/highlight.github-dark.css">
+<script src="{{specialPathPrefix}}lib/testable.js" type="module"></script>
+<script src="{{specialPathPrefix}}lib/litmd-header.js" type="module"></script>
 
 <body class="markdown-body">
 <header>
