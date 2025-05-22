@@ -295,6 +295,15 @@ class Reflector {
                 res.end(err.message);
             };
 
+            // Check for favicon.ico request and return 204
+            // we define favicon in the header, and this avoids
+            // an ugly 404 in the browser console
+            if (req.url === '/favicon.ico') {
+                res.writeHead(204, { 'Content-Type': 'image/x-icon' });
+                res.end();
+                return;
+            }
+
             // Extract filename from URL
             let fileName;
             try {
