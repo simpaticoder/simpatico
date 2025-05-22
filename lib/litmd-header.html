@@ -45,7 +45,7 @@
 
     /* Navigation styling */
     nav {
-        background-color: #f6f8fa; /* Light theme nav background */
+        background-color: #76b3f0; /* Light theme nav background */
         padding: 10px;
         border-radius: 8px;
         margin-bottom: 20px; /* Space below navigation */
@@ -56,6 +56,13 @@
             background-color: #161b22; /* Dark theme nav background */
         }
     }
+
+    @media (prefers-color-scheme: light) {
+        .markdown-body{
+            --bgColor-muted: #0b2c4d;
+        }
+    }
+
 
     nav ul {
         list-style: none; /* Remove bullets */
