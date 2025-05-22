@@ -18,9 +18,8 @@ The svg container is reactive to page width, and the pixel height is computed ba
 To adjust the logical height use `viewBox` parameters.
 
 ```js
-import * as svg from '/s/lib/svg.js';
+const iframeSvg = document.getElementById('iframe-svg');
 
-const iframeSvg = svg.elt('iframe-svg');
 // NB: adjust viewbox of svg to add more rows of content
 const urls = [
   'combine', 'core','friendly', 'lit', 'stree',
@@ -46,7 +45,7 @@ iframeSvg.innerHTML = html;
 
 ```
 
-
+-------
 # Headless execution
 If your test suite is self-executing html pages, then including them as an `iframe` with [testable.js](testable.js) and visually checking their background color works great.
 
