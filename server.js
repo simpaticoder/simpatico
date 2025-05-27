@@ -64,6 +64,7 @@ class Reflector {
             useCache: true,
             useGzip: true,
             useTls: false,
+            enableWebsockets: false,
             logFileServerRequests: true,
             superCacheEnabled: false,
             debug: true,
@@ -171,11 +172,13 @@ class Reflector {
             });
         }
 
-        // Create WebSocket server
-        const wss = new WebSocketServer({
-            server: this.config.useTls ? httpsServer : httpServer
-        }).on('connection', this.chatServerLogic);
-        result.ws = this.config.useTls ? this.config.https : this.config.http;
+        // Create WebSocket server if enabled
+        if (this.config.enableWebsockets) {
+            new WebSocketServer({
+                server: this.config.useTls ? httpsServer : httpServer
+            }).on('connection', this.chatServerLogic);
+            result.ws = this.config.useTls ? this.config.https : this.config.http;
+        }
 
         return result;
     }
