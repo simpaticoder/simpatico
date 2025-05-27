@@ -9,14 +9,15 @@ The module and utility are used to develop each other, but you can safely use on
 Prerequisites:
 1. Linux-like OS (Linux, macOS, Windows WSL)
 2. Node 17+
-3. pnpm 10+ (Optional)
+3. pnpm 10+ (Optional?)
 
 > **Tip:** Install requirements with [mise](https://mise.jdx.dev/) with `curl https://mise.run | sh` and then `mise use node@latest pnpm@latest` within your project directory to easily meet the runtime requirements without affecting your global toolchain. Mise (pronounced 'meez') is a modern tool that replaces and improves many version managers like `nvm`, `rvm`, and `sdkman`.
+> **Note** I have not done any testing with `npm` or `yarn` so YMMV with these package managers. 
 
 ```bash
 alias p=pnpm
 mkdir mywebsite && cd mywebsite
-# mise use node@latest pnpm@latest
+# mise use node pnpm
 p init
 p install simpatico
 p simpatico # or `npx simpatico`
