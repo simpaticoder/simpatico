@@ -213,7 +213,6 @@ class Reflector {
                 }
             } catch (e) {
                 const err = `unable to serve acme challenge ${req.url} : ${e}`;
-                error(err);
                 res.writeHead(404, err);
                 res.end();
             }
