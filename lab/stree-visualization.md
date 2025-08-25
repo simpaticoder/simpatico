@@ -6,7 +6,7 @@ The stree is at its heart an n-arry tree of inputs (messages), mapped to an n-ar
 The first "visualization" is in code: 
 
 ```js
-import {stree} from "../lib/simpatico.js";
+import {stree} from "/lib/simpatico.js";
 
 const s = stree();
 const a = {a:1};
@@ -532,8 +532,7 @@ Now that it's working right, lets make sure the shared code is okay.
 ```
 ```js
 import {arithmeticOps} from "./stree-examples.js";
-import {renderStree} from "./stree-visualization.js";
-import {stree, svg} from '/lib/simpatico.js';
+import {stree, svg, renderStree} from '/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render3');
 const s = stree(arithmeticOps);
