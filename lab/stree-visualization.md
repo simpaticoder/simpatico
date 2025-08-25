@@ -87,7 +87,7 @@ This is the first iteration of the visualation code.
 It assumes that every rendered elt is a node in the stree.
 It uses the 'clone and scatter' approach to rendering.
 ```js
-import {svg, tryToStringify} from '/s/lib/simpatico.js';
+import {svg, tryToStringify} from '/lib/simpatico.js';
 
 const html1 = (svgClass='visualize-stree', inspectorClass ='residue-inspector', colorKeyClass = 'color-key') => `
 <p>key: <span class="${colorKeyClass}"></span></p>
@@ -299,7 +299,7 @@ Here is an example of what it does
 ```
 ```js
 import {arithmeticOps} from "./stree-examples.js";
-import {stree, svg} from '/s/lib/simpatico.js';
+import {stree, svg} from '/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render');
 const s = stree(arithmeticOps);
@@ -313,7 +313,7 @@ It makes life easier to move away from "clone and scatter" and instead use simpl
 
 
 ```js
-import {svg, tryToStringify} from '/s/lib/simpatico.js';
+import {svg, tryToStringify} from '/lib/simpatico.js';
 
 const html1 = (svgClass='visualize-stree', inspectorClass ='residue-inspector', colorKeyClass = 'color-key') => `
 <p>key: <span class="${colorKeyClass}"></span></p>
@@ -518,7 +518,7 @@ window.renderStree2 = renderStree;
 ```
 ```js
 import {arithmeticOps} from "./stree-examples.js";
-import {stree, svg} from '/s/lib/simpatico.js';
+import {stree, svg} from '/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render2');
 const s = stree(arithmeticOps);
@@ -533,7 +533,7 @@ Now that it's working right, lets make sure the shared code is okay.
 ```js
 import {arithmeticOps} from "./stree-examples.js";
 import {renderStree} from "./stree-visualization.js";
-import {stree, svg} from '/s/lib/simpatico.js';
+import {stree, svg} from '/lib/simpatico.js';
 
 const renderParent = svg.elt('arithmetic-render3');
 const s = stree(arithmeticOps);

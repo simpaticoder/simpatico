@@ -1,4 +1,4 @@
-import nacl from '/s/vendor/nacl.js';
+import nacl from '/vendor/nacl.js';
 
 // Note: use EventTarget instead (node 15+ and browsers)
 class EventEmitter {

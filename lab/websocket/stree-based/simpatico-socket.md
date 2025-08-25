@@ -12,8 +12,8 @@
 ```
 
 ```js
-import {stree} from '/s/lib/simpatico.js';
-import {logHandler} from '/s/lib/handlers.js';
+import {stree} from '/lib/simpatico.js';
+import {logHandler} from '/lib/handlers.js';
 let n = 0;
 
 

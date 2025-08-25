@@ -20,7 +20,7 @@ In this notation we let values be lowercase letters, and the letters are assigne
 
 We can write code that almost looks like this representation if we let each value be a single character, let the reduction be concatenation. This is not how you'd normally use `stree`, but it may be illustrative:
 ```js
-import {stree, formatSTree} from '/s/lib/simpatico.js';
+import {stree, formatSTree} from '/lib/simpatico.js';
 
 // Define our reducer and values a through i
 const concat = (a, b) => a + b;
@@ -116,7 +116,7 @@ Deserialization methods. It would be nice to support these in the `stree()` cons
 The default STree uses an empty object `{}` as root and `combine()` as the reducer:
 
 ```js
-import {stree, formatSTree} from '/s/lib/simpatico.js';
+import {stree, formatSTree} from '/lib/simpatico.js';
 
 const s = stree(), a = {a:1}, b = {b:2};
 

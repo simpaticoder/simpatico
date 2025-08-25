@@ -67,7 +67,7 @@ class Reflector {
             enableWebsockets: false,
             logFileServerRequests: true,
             superCacheEnabled: false,
-            debug: true,
+            debug: false,
         };
 
         // Environment variables override defaults
@@ -102,7 +102,7 @@ class Reflector {
         // Add litmd configuration
         config.litmd = {
             hostname: config.hostname,
-            specialPathPrefix: '/s/',
+            specialPathPrefix: '/',
             baseUrl: config.baseUrl,
             author: config.measured.name,
             keywords: "es6, minimalist, vanillajs, notebook",
@@ -341,12 +341,11 @@ class Reflector {
 
             // Log request details
             const logRequest = req => {
-                const normalized = (fileName !== req.url);
                 console.log(
                     new Date().toISOString(),
                     req.socket.remoteAddress.replace(/^.*:/, ''),
-                    req.headers["user-agent"].substr(0, 20),
-                    req.url, "\n",
+                    req.headers["user-agent"].substring(0, 20),
+                    req.url, "=>",
                     fileName,
                 );
             };
@@ -406,14 +405,7 @@ class Reflector {
 
     urlToFileName(path) {
         // Handle special URLs for package resources
-        const isSpecial = path.startsWith(this.config.litmd.specialPathPrefix);
-        const __dirname = isSpecial ?
-            (dirname(fileURLToPath(import.meta.url))) :
-            process.cwd();
-
-        path = isSpecial ?
-            path.substring(this.config.litmd.specialPathPrefix.length - 1) :
-            path;
+        const __dirname = process.cwd();
 
         // Strip query parameters
         if (path.indexOf('?') > -1) {

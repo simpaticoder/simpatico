@@ -16,7 +16,7 @@ p This example demonstrates:
 ```
 
 ```js
-import nacl from '/s/vendor/nacl.js'
+import nacl from '/vendor/nacl.js'
 /**
  * Alice and Bob's communication workflow with correct key generation
  */

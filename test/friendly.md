@@ -17,7 +17,7 @@ Related:
 
 
 ```js
-  import {checkValue, validate} from '/s/lib/friendly.js';
+  import {checkValue, validate} from '/lib/friendly.js';
 
   const {str, num, bool, fun, obj, undef, arr, same,
     all, contains, equals} = as;

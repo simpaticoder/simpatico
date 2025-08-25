@@ -5,8 +5,8 @@ Scalable Vector Graphics (SVG) is a powerful, low-entropy, programmable represen
 
 See:
 [home](/),
-[combine](/s/test/combine.md),
-[litmd](/s/test/lit.md),
+[combine](/test/combine.md),
+[litmd](/test/lit.md),
 
 __________________________________________
 # Rotating squares animation

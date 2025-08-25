@@ -1,7 +1,7 @@
 # Simpatico
 Simpatico is an npm package that exposes one executable and one module. The `simpatico` executable is a (fast, small, secure, low dependency, privacy respecting http and websocket) server. It can serve markdown, and supports [Let's Encrypt](https://letsencrypt.org/) for SSL/TLS. 
 
-The `simpatico` **module** exposes a small set of isomorphic vanilla javascript libraries with no dependencies: utility functions `core`, a transducer function `combine`, a novel data structure `stree`, and a runtime type system called `friendly`. 
+The `simpatico` **npm module** exposes a small set of isomorphic vanilla javascript libraries with no dependencies: utility functions `core`, a transducer function `combine`, a novel data structure `stree`, and a runtime type system called `friendly`. 
 
 The module and utility are used to develop each other, but you can safely use one and ignore the other in your own packages.
 

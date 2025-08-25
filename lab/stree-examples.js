@@ -1,5 +1,5 @@
 import {assertHandler, logHandler} from "../lib/handlers.js";
-import {DELETE, h} from '/s/lib/combine.js';
+import {DELETE, h} from '/lib/combine.js';
 
 // it would be nice to support non-object values in stree, however this conflicts with both fromArray and other things.
 // the trailing empty strings allow branching off the last node, ensuring a new row per word.

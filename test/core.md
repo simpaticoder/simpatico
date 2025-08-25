@@ -14,7 +14,7 @@ A handful of comprehensive helper functions to make working with ES6 more functi
 ## Assertions
 
 ```js
-import {cast, TYPES} from '/s/lib/core.js';
+import {cast, TYPES} from '/lib/core.js';
 
 //   Uncomment to test and make sure it actually fails.
 //   assertThrows(1)

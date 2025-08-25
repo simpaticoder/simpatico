@@ -2,8 +2,8 @@
 This convention supports the use of [friendly functions](friendly.md) to do validation on handler arguments.
 (This will be a regular pattern in most handlers, so we will eventually move the boilerplate into combine.)
 ```js
-import { combine } from '/s/lib/combine.js';
-import { validate } from '/s/lib/friendly.js';
+import { combine } from '/lib/combine.js';
+import { validate } from '/lib/friendly.js';
 
 const user = {
   name: 'user',
@@ -52,7 +52,7 @@ assertEquals(25, result.age);
 # Custom rules
 You can override the default ruleset in combine.
 ```js
-import {combineRules} from '/s/lib/combine.js';
+import {combineRules} from '/lib/combine.js';
 
 assertEquals(6, combineRules(2,3, (a,b) => a * b));
 // custom embedded rules are scalar so they work in objects.

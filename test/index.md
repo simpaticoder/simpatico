@@ -23,7 +23,7 @@ const iframeSvg = document.getElementById('iframe-svg');
 // NB: adjust viewbox of svg to add more rows of content
 const urls = [
   'combine', 'core','friendly', 'lit', 'stree',
-].map(a => '/s/test/' + a);
+].map(a => '/test/' + a);
 
 const clickableIframe = (url, {x,y}) => `
   <g transform="translate(${x} ${y})">
