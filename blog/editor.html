@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Div-Based Diagram Editor</title>
+    <style>
+        body { font-family: sans-serif; }
+        #board {
+            position: relative;
+            width: 900px;
+            height: 600px;
+            border: 1px solid #aaa;
+            margin: 30px auto;
+        }
+        .box {
+            position: absolute;
+            background: #e3f2fd;
+            border: 2px solid #0277bd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: move;
+            user-select: none;
+        }
+        .selected { outline: 2px dashed #f50057; }
+        .resize-handle {
+            position: absolute;
+            right: -6px;
+            bottom: -6px;
+            width: 12px;
+            height: 12px;
+            background: #f50057;
+            cursor: se-resize;
+        }
+        .group {
+            border: 2px dashed #388e3c;
+            background: rgba(76,175,80,0.15);
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+<div style="text-align:center;">
+    <button onclick="addBox()">Add Box</button>
+    <button onclick="removeSelected()">Remove Selected</button>
+    <button onclick="groupSelected()">Group Selected</button>
+</div>
+<div id="board"></div>
+<script>
+    let boxes = [], groups = [], selected = [];
+    const board = document.getElementById('board');
+
+    function addBox() {
+        const box = { x: 50, y: 50, w: 100, h: 60, id: Date.now()+"", children: null };
+        boxes.push(box);
+        render();
+    }
+
+    function removeSelected() {
+        boxes = boxes.filter(b => !selected.includes(b.id));
+        groups = groups.filter(g => !selected.includes(g.id));
+        selected = [];
+        render();
+    }
+
+    function selectBox(e, id) {
+        if (!e.shiftKey) selected = [];
+        if (!selected.includes(id)) selected.push(id); else selected = selected.filter(i=>i!==id);
+        render();
+    }
+
+    function groupSelected() {
+        if (selected.length < 2) return;
+        // Find bounds
+        const groupBoxes = boxes.filter(b => selected.includes(b.id));
+        let minX = Math.min(...groupBoxes.map(b=>b.x)),
+            minY = Math.min(...groupBoxes.map(b=>b.y)),
+            maxX = Math.max(...groupBoxes.map(b=>b.x+b.w)),
+            maxY = Math.max(...groupBoxes.map(b=>b.y+b.h));
+        // Move boxes inside group
+        groupBoxes.forEach(b => { b.x -= minX; b.y -= minY; });
+        const group = { x:minX, y:minY, w:maxX-minX, h:maxY-minY, id:'group-'+Date.now(), children: groupBoxes.map(b=>b.id) };
+        groups.push(group);
+        boxes = boxes.filter(b => !selected.includes(b.id));
+        selected = [group.id];
+        render();
+    }
+
+    function render() {
+        board.innerHTML = '';
+        const makeDiv = (obj, type='box') => {
+            const div = document.createElement('div');
+            div.className = type + (selected.includes(obj.id) ? ' selected' : '');
+            div.style.left = obj.x + 'px';
+            div.style.top = obj.y + 'px';
+            div.style.width = obj.w + 'px';
+            div.style.height = obj.h + 'px';
+            div.setAttribute('data-id', obj.id);
+            div.innerHTML = type === 'box' ? '<span>Box</span>' : '';
+            div.addEventListener('mousedown', e => startDrag(e, obj, type));
+            div.addEventListener('click', e => { e.stopPropagation(); selectBox(e, obj.id); });
+            // Add resize handle for boxes/groups
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            handle.addEventListener('mousedown', e => startResize(e, obj, type));
+            div.appendChild(handle);
+            if (type==='group') {
+                obj.children.forEach(childId => {
+                    let child = boxes.find(b => b.id===childId);
+                    if (child) {
+                        const childDiv = makeDiv(child, 'box');
+                        childDiv.style.left = child.x + 'px';
+                        childDiv.style.top = child.y + 'px';
+                        childDiv.style.width = child.w + 'px';
+                        childDiv.style.height = child.h + 'px';
+                        div.appendChild(childDiv);
+                    }
+                });
+            }
+            return div;
+        };
+        boxes.forEach(box => board.appendChild(makeDiv(box)));
+        groups.forEach(group => board.appendChild(makeDiv(group, 'group')));
+    }
+
+    let dragObj = null, dragType = '', dragStart = {x:0, y:0, mx:0, my:0};
+    function startDrag(e, obj, type) {
+        if (e.target.classList.contains('resize-handle')) return;
+        dragObj = obj; dragType = type;
+        dragStart = {
+            x: obj.x, y: obj.y,
+            mx: e.clientX, my: e.clientY
+        };
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('mouseup', stopDrag);
+    }
+    function dragMove(e) {
+        dragObj.x = dragStart.x + (e.clientX - dragStart.mx);
+        dragObj.y = dragStart.y + (e.clientY - dragStart.my);
+        render();
+    }
+    function stopDrag() {
+        document.removeEventListener('mousemove', dragMove);
+        document.removeEventListener('mouseup', stopDrag);
+        dragObj = null; dragType = '';
+    }
+
+    let resizeObj = null, resizeType = '';
+    function startResize(e, obj, type) {
+        e.stopPropagation();
+        resizeObj = obj; resizeType = type;
+        dragStart = {
+            w: obj.w, h: obj.h,
+            mx: e.clientX, my: e.clientY
+        };
+        document.addEventListener('mousemove', resizeMove);
+        document.addEventListener('mouseup', stopResize);
+    }
+    function resizeMove(e) {
+        resizeObj.w = Math.max(50, dragStart.w + (e.clientX - dragStart.mx));
+        resizeObj.h = Math.max(30, dragStart.h + (e.clientY - dragStart.my));
+        render();
+    }
+    function stopResize() {
+        document.removeEventListener('mousemove', resizeMove);
+        document.removeEventListener('mouseup', stopResize);
+        resizeObj = null;
+    }
+
+    // Deselect
+    board.addEventListener('click', function(e) {
+        if (e.target === board) selected = [];
+        render();
+    });
+    render();
+</script>
+</body>
+</html>
