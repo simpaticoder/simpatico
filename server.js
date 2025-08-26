@@ -184,7 +184,8 @@ class Reflector {
     }
 
     dropProcessPrivs(user) {
-        process.setuid(user);
+        // Important note! This method call is causing a bind error as of 8/2025.
+        // process.setuid(user);
         // process.setgid(user);
         info('dropProcessPrivs succeeded', user);
     }
