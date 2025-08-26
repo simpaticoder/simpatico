@@ -8,12 +8,6 @@ See also
 [reflector](/reflector.md),
 [other literate programming tools](http://literateprogramming.com)
 
-[![Aperiodic tile with one tile](/img/aperiodic-green.svg =500x500)](https://arxiv.org/abs/2303.10798)
-
-HTML will always be the primary authoring tool.
-But it is difficult to write *about* code in HTML.
-One needs to HTML escape the code, which makes the code unreadable and unmaintainable.
-We need a way to write about code in a way that is readable and maintainable.
 
 To that end I've added basic litmd support to the [reflector](/reflector.js).
 
@@ -111,30 +105,15 @@ if (document.getElementById('test-div2') !== null) throw 'test-div2 should not e
 Make sure it didn't execute:
 ```js
 // Check the CSS DOM for the existence of a rule that should not exist
-function findCSSRule(predicate, document, defaultResult=null){
-  const styleSheets = document.styleSheets;
-  for (let i = 0; i < styleSheets.length; i++) {
-    let rules = styleSheets[i].cssRules;
-    for (let j = 0; j < rules.length; j++) {
-      if (predicate(rules[j])) {
-        return(rules[j]);
-      }
-    }
-  }
-  return defaultResult;
+function findCSSRule(selectorText, document=document) {
+    return Array.from(document.styleSheets)
+        .flatMap(sheet => Array.from(sheet.cssRules))
+        .find((rule) => rule.selectorText === selectorText);
 }
-const predicate = (rule) => rule.selectorText === '#test-div2';
-assertEquals(null, findCSSRule(predicate, window.document),'css rule #test-div2 should not exist');
+assertEquals(undefined, findCSSRule('#test-div2', window.document),'css rule #test-div2 should not exist');
 ```
 
-An aside - what do you think of this more functional implementation of the above function:
-```js
-function findCSSRule(selectorText, document=document) {
-  return Array.from(document.styleSheets)
-    .flatMap(sheet => Array.from(sheet.cssRules))
-    .find((rule) => rule.selectorText === selectorText);
-}
-```
+
 (I think it looks pretty and sleek and clever.
 But the first one is easier to understand and debug.)
 
