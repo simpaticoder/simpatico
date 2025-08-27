@@ -1,20 +1,20 @@
 /**
- * SecureWebSocket - A WebSocket wrapper that provides end-to-end encryption
+ * ClientSecureWebSocket - A WebSocket wrapper that provides end-to-end encryption
  * using asymmetric cryptography (public/private key pairs)
  */
-export default class SecureWebSocket {
+export default class ClientSecureWebSocket {
     /**
      * Creates a new secure WebSocket connection
      *
      * @param {string} publicKey - Your public key
      * @param {string} privateKey - Your private key (keep this secret!)
      * @param {WebSocket} socket - WebSocket connection
-     * @param {function} onmessage - Callback that recieves (err, decrypted_message).
-     * @returns {Promise<SecureWebSocket>} - A promise that resolves to the secure connection
+     * @param {function} onmessage - Callback that receives (err, decrypted_message).
+     * @returns {Promise<ClientSecureWebSocket>} - A promise that resolves to the secure connection
      */
     constructor(publicKey, privateKey, socket = "wss://secure-messaging-server.example.com", onmessage) {
+
         return (async () => {
-            // Validate required parameters
             if (!publicKey || typeof publicKey !== 'string') {
                 throw new Error('Public key is required and must be a string');
             }
@@ -87,7 +87,7 @@ export default class SecureWebSocket {
                     this.socket.onmessage = registrationHandler;
 
                     // Set a timeout for the registration process
-                    const timeoutId = setTimeout(() => {
+                    setTimeout(() => {
                         this.socket.onmessage = null;
                         reject(new Error("Registration timed out"));
                     }, 5000);
@@ -98,11 +98,13 @@ export default class SecureWebSocket {
                     const packet = event.data;
                     try {
                         const decryptedContent = crypto.decrypt(packet.from, this.privatekey, packet.content);
-                        parsedContent = JSON.parse(decryptedContent);
+                        const parsedContent = JSON.parse(decryptedContent);
                         this.onmessage(null, {
+                            type: "MESSAGE",
                             from: packet.from,
-                            content: parsedContent,
-                            timestamp: packet.timestamp
+                            to: packet.to,
+                            timestamp: packet.timestamp,
+                            content: parsedContent
                         });
                     } catch (error) {
                         this.onmessage(new Error("Failed to decrypt message", {cause: {error, packet}}));
@@ -120,6 +122,7 @@ export default class SecureWebSocket {
 
     /**
      * Send an encrypted message to another user
+     * @param recipientKey
      * @param {Object} message - Message object
      * @param {string} message.to - Recipient's public key
      * @param {Object} message.content - Message content (will be encrypted)
@@ -134,16 +137,12 @@ export default class SecureWebSocket {
 
         try {
             const encryptedContent = crypto.encrypt(JSON.stringify(message.content), recipientKey);
-            const signature = sign(encryptedContent);
-
-            // Prepare the message packet
             const packet = {
                 type: "MESSAGE",
                 from: this.publicKey,
                 to: recipientKey,
-                content: encryptedContent,
-                signature: signature,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                content: encryptedContent
             };
             this.socket.send(JSON.stringify(packet));
         } catch (error) {
@@ -158,6 +157,5 @@ export default class SecureWebSocket {
         this.socket.close();
         this.isRegistered = false;
     }
-
 }
 

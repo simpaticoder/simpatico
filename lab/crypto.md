@@ -1,4 +1,4 @@
-p This example demonstrates:
+# This example demonstrates:
 1. Generating an Ed25519 keypair
 2. Deriving an X25519 keypair from the Ed25519 key
 3. Performing a Diffie-Hellman key exchange
@@ -134,7 +134,7 @@ function uint8ArrayToHex(uint8Array) {
     return Array.from(uint8Array)
         .map(b => b.toString(16).padStart(2, '0'))
         .join('')
-        .substring(0, 32) + '...'; // Truncate for display
+        //.substring(0, 32) + '...'; // Truncate for display
 }
 
 /**

@@ -16,7 +16,7 @@ As a matter of taste, the constructor is too long. However having ALL the initia
 </div>
 
 ```js
-import SecureWebSocket from "./secure-websocket.js";
+import ClientSecureWebSocket from "./ClientSecureWebSocket.js";
 import MockWebSocket from "./mock-websocket.js";
 import CryptoUtils from "./crypto-utils.js";
 
@@ -26,7 +26,7 @@ const { publicKey, privateKey } = CryptoUtils.generateKeyPair();
 async function runDemo(){
     let connection;
     try{
-        connection = await SecureWebSocket(publicKey, privateKey, client, (err, clearMsg) => {
+        connection = await ClientSecureWebSocket(publicKey, privateKey, client, (err, clearMsg) => {
             logMessage("client recieved " + JSON.stringify(clearMsg));
         });
         connection.onclose = (e) => {
