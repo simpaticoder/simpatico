@@ -23,12 +23,14 @@
     "blog": "node ./lib/blog.js",
     "copy-vendor": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/",
     "copy-lab": "echo 'not ready yet' && cp ./node_modules/dompurify/dist/purify.es.mjs ./lab/dompurify.js && cp ./node_modules/qrcode/index.js ./vendor/qrcode.js",
-    "copy-crypto": "rollup -c && sed -i '1d' ./vendor/nacl.js"
+    "copy-crypto": "rollup -c && sed -i '1d' ./vendor/nacl.js",
+    "copy-nacl" : "cp ./node_modules/tweetnacl-es6/nacl-fast-es.js ./vendor/nacl.js",
+    "copy-all": "npm run copy-vendor && npm run copy-lab && npm run copy-crypto && npm run copy-nacl"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
-    "ws": "^8.18.1",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl-es6": "^1.0.3",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",

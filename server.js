@@ -4,19 +4,18 @@ import http from 'node:http';
 import https from 'node:https';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import crypto from 'node:crypto';
+import {createHash} from 'node:crypto';
 import * as os from "node:os";
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import WebSocket, { WebSocketServer } from 'ws';
+
+import { WebSocketServer } from 'ws';
 import chokidar from 'chokidar';
 
 import { info, log, error, debug, mapObject, hasProp, peek } from './lib/core.js';
 import { combine } from './lib/combine.js';
-import { stree } from './lib/stree.js';
-import { buildHtmlFromLiterateMarkdown } from './lib/litmd.js';
+import buildHtmlFromLiterateMarkdown from './lib/litmd.js';
 import { findRecentFile } from './lib/find-recent-file.js';
+import SecureWebSocketServer from "./lab/websocket/SecureWebSocketServer.js";
 
 // ================================================================
 // Configuration and Initialization
@@ -25,9 +24,8 @@ import { findRecentFile } from './lib/find-recent-file.js';
 class Reflector {
     constructor() {
         this.DEBUG = false;
-        this.hiddenConfigFields = { password: '******', jdbc: '******' };
         this.cache = {};
-        this.connections = stree({});
+        this.connections = {};
         this.config = this.processConfig();
 
         info(`reflector.js [${JSON.stringify(this.config, null, 2)}]`);
@@ -175,7 +173,8 @@ class Reflector {
         // Create WebSocket server if enabled
         if (this.config.enableWebsockets) {
             new WebSocketServer({
-                server: this.config.useTls ? httpsServer : httpServer
+                server: this.config.useTls ? httpsServer : httpServer,
+                perMessageDeflate: true
             }).on('connection', this.chatServerLogic);
             result.ws = this.config.useTls ? this.config.https : this.config.http;
         }
@@ -507,7 +506,7 @@ class Reflector {
     }
 
     sha256(data) {
-        return crypto.createHash("sha256").update(data).digest("hex");
+        return createHash("sha256").update(data).digest("hex");
     }
 
     isCompressedImage(fileName) {
@@ -547,52 +546,78 @@ class Reflector {
     // Chat Server Logic
     // ================================================================
 
+    // it's an open question where to put abuse prevention measures, here or in the SecureWebSocketServer class.
+    // we check here for structural validity and value validity. need to check message size and frequency.
+    // we additionally may want to support a keepalive ping, either from the server or client.
     chatServerLogic(ws) {
-        // Register new connection
-        console.log('connected');
-        const conn = this.connections.add({ ws }, 0);
+        SecureWebSocketServer.create(ws, 1000)
+            .then(secureSocket=> {
+                // if a socket is already registered to the public key, send an error and close it.
+                if (hasProp(this.connections, secureSocket.publicKey)) {
+                    secureSocket.socket.send({error: "SOCKET_ALREADY_REGISTERED"});
+                    secureSocket.close();
+                    return;
+                }
 
-        // Set up message handler
-        ws.on('message', msg => this.handleMessage(msg, conn.branchIndex));
+                // add the socket to connections, and setup its handlers.
+                this.registerSocket(secureSocket);
+                secureSocket.onclose = this.unregisterSocket;
+                secureSocket.onerror = this.unregisterSocket;
+                secureSocket.onsecuremessage = this.messageRouter;
+                // not sure if this is useful, but there may be a delay between registration completion and ready to consume messages.
+                secureSocket.send({type: "READY"});
+            });
+    }
+    registerSocket(secureSocket){
+        if (!secureSocket.isRegistered){
+            throw 'Cannot register when secureSocket.isRegistered==false';
+        }
+        this.connections[secureSocket.publicKey] = secureSocket;
+    }
+    unregisterSocket(secureSocket) {
+        secureSocket.isRegistered = false;
+        delete this.connections[secureSocket.publicKey]
     }
 
-    handleMessage(message, branchIndex) {
-        console.log('message received ' + message);
-        const residues = this.connections.residues();
-        const connection = residues[branchIndex];
+    messageRouter(message, actualFromSocket){
+        const {type, from, to, content} = message;
+        const fromSocket = this.connections[from];
+        const toSocket = this.connections[to];
 
-        // Ignore excessively long messages
-        if (message.length > 300) {
-            connection.ws.send('your message was too long');
+        if (!fromSocket) {
+            // this should basically never happen
+            actualFromSocket.send(Object.assign(message, {error: "SOCKET_NOT_REGISTERED"}));
+            return;
+        }
+        if (fromSocket !== actualFromSocket){
+            // sending with a public key different from the one associated with the socket indicates a potential hacking attempt
+            actualFromSocket.send(Object.assign(message, {error: "MISMATCHED_SOCKET_PUBLIC_KEY"}));
+            return;
+        }
+        if (content === undefined){
+            // no point in delivering an empty message
+            actualFromSocket.send(Object.assign(message, {error: "MISSING_CONTENT_FIELD"}));
+            return;
+        }
+        if (type !== "MESSAGE"){
+            // somewhat arbitrary, but a missing field like this indicates potential other problems.
+            actualFromSocket.send(Object.assign(message, {error: "MISSING_TYPE_MESSAGE"}));
             return;
         }
 
-        // Broadcast to all connections
-        for (let i = 0; i < residues.length; i++) {
-            let conn = residues[i];
-
-            // Skip sender for normal operation
-            if (conn.ws === connection.ws) return;
-
-            try {
-                // Clean up dead connections
-                if (typeof conn.ws === 'undefined' || conn.ws.readyState !== WebSocket.OPEN) {
-                    log(`connection ${i} died, deleting`);
-                    delete this.connections[i];
-                    continue;
-                }
-
-                // Format and send message
-                const msg = `${branchIndex} > ${message}`;
-                conn.ws.send(msg);
-                log('chatServerLogic', 'branchIndex', branchIndex, 'to', i, 'message', message + '');
-            } catch (e) {
-                error(e);
-            }
+        if (!toSocket) {
+            // this is a common situation where you try to send to a public key that isn't present.
+            actualFromSocket.send(Object.assign(message, {error: "RECIPIENT_NOT_FOUND"}));
+            return;
         }
+
+        // we ran the gauntlet of checks and can route the message!
+        toSocket.send(message);
+        // send delivery confirmation
+        actualFromSocket.send(Object.assign(message, {type: "MESSAGE_DELIVERED"}));
     }
 
-    // ASCII art for error pages
+
     get failWhale() {
         return `
  ___        _  _       __      __ _           _
@@ -603,7 +628,6 @@ class Reflector {
     }
 }
 
-// TODO figure out how to both export Reflector and allow its execution from dependencies.
 const reflector = new Reflector();
 reflector.initialize().catch(err => {
     console.error("Failed to initialize reflector", err);

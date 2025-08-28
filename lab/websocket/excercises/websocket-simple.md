@@ -16,7 +16,7 @@ As a matter of taste, the constructor is too long. However having ALL the initia
 </div>
 
 ```js
-import ClientSecureWebSocket from "./ClientSecureWebSocket.js";
+import ClientSecureWebSocket from "./SecureWebSocketClient.js";
 import MockWebSocket from "./mock-websocket.js";
 import CryptoUtils from "./crypto-utils.js";
 

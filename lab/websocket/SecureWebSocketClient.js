@@ -1,8 +1,10 @@
+import crypto from "./crypto.js";
+
 /**
  * ClientSecureWebSocket - A WebSocket wrapper that provides end-to-end encryption
  * using asymmetric cryptography (public/private key pairs)
  */
-export default class ClientSecureWebSocket {
+export default class SecureWebSocketClient {
     /**
      * Creates a new secure WebSocket connection
      *
@@ -12,7 +14,7 @@ export default class ClientSecureWebSocket {
      * @param {function} onmessage - Callback that receives (err, decrypted_message).
      * @returns {Promise<ClientSecureWebSocket>} - A promise that resolves to the secure connection
      */
-    constructor(publicKey, privateKey, socket = "wss://secure-messaging-server.example.com", onmessage) {
+    constructor(publicKey, privateKey, onmessage) {
 
         return (async () => {
             if (!publicKey || typeof publicKey !== 'string') {
@@ -64,7 +66,7 @@ export default class ClientSecureWebSocket {
                                 this.socket.send(JSON.stringify({
                                     type: "CHALLENGE_RESPONSE",
                                     publicKey: this.publicKey,
-                                    signedNonce: sign(this.privateKey, data.nonce)
+                                    signedNonce: crypto.sign(this.privateKey, data.nonce)
                                 }));
                                 break;
 
@@ -158,4 +160,3 @@ export default class ClientSecureWebSocket {
         this.isRegistered = false;
     }
 }
-
