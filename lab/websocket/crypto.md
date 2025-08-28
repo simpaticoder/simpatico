@@ -23,18 +23,17 @@ base64 has a url-safe variant called base64url, but the encoder code is more com
 
 ```js
 import * as crypto from './crypto.js';
-import {stringToBits, bitsToString, base64url} from './encoder.js';
 
-const {encode, decode} = base64url;
+const {encode, decode, stringToBits, bitsToString} = crypto;
 
-// Make a user and contact
+// Make a user and contact 
 let alice = initializeUser('alice');
 let bob = initializeUser('bob');
 let bobContact = addContact(alice.privateKeyBits, bob.publicKeyString, 'bob');
 
 // Work with text
 let clearText1 = "hello bob";
-let envelope1 = crypto.encryptMessage(alice, bobContact, clearText1, false);
+let envelope1 = crypto.encryptMessage(alice, bobContact, clearText1, "MESSAGE", false);
 let clearText2 = crypto.decryptMessage(envelope1, bobContact.sharedSecret, false);
 assertEquals(clearText1, clearText2);
 
@@ -49,19 +48,10 @@ assertEquals(clearObjectMessage1, clearObjectMessage2);
 // Signing keys are only used during socket registration.
 // Encryption keys are used during the lifetime of the socket
 function initializeUser(name) {
-    const {privateKeyBits, publicKeyBits} = crypto.generateEncryptionKeys();
-    const {privateSigningKeyBits, publicSigningKeyBits} = crypto.generateSigningKeys();
+    const keys = crypto.generateEncryptionKeys();
     return {
         name,
-        publicKeyBits: publicKeyBits,
-        publicKeyString: encode(publicKeyBits),
-        privateKeyBits: publicKeyBits,
-        privateKeyString: encode(privateKeyBits),
-
-        publicSigningKeyBits: privateSigningKeyBits,
-        publicSigningKeyString: encode(privateSigningKeyBits),
-        privateSigningKeyBits: publicSigningKeyBits,
-        privateSigningKeyString: encode(publicSigningKeyBits),
+        ...keys
     }
 }
 
@@ -86,8 +76,6 @@ function encryptMessage(from, to, clearString, isJSON = true) {
 
     // encode the nonce and message for transport
     return {
-        from: from.publicKeyString,
-        to: to.publicKeyString,
         nonce: encode(nonceBits),
         message: encode(cipherBits)
     };

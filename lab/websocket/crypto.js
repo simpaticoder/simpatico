@@ -1,23 +1,90 @@
 import nacl from '../../vendor/nacl.js';
-import {stringToBits, bitsToString, base64url} from './encoder.js';
 
+/**
+ * Multi-Format Encoding Library
+ * Supports encoding and decoding Uint8Array to/from various formats:
+ * - Base64 URL-safe (RFC 4648 Section 5)
+ * - Isomorphic UTF-8 utility
+ */
+const Utf8Converter = (() => {
+    const isNode =
+        typeof process !== 'undefined' &&
+        process.versions != null &&
+        typeof process.versions.node === 'string';
+    if (isNode) {
+        return {
+            stringToBits: str => Buffer.from(str, 'utf-8'),
+            bitsToString: arr => Buffer.from(arr).toString('utf-8'),
+        };
+    } else {
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder('utf-8');
+        return {
+            stringToBits: str => encoder.encode(str),
+            bitsToString: arr => decoder.decode(arr),
+        };
+    }
+})();
+
+const base64url = {
+    encode(bytes) {
+        if (!(bytes instanceof Uint8Array)) {
+            throw new TypeError('Input must be a Uint8Array');
+        }
+
+        // Convert to binary string
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+
+        // Use built-in btoa and convert to URL-safe
+        return btoa(binary)
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, ''); // Remove padding
+    },
+
+    decode(str) {
+        if (typeof str !== 'string') {
+            throw new TypeError('Input must be a string');
+        }
+
+        // Convert from URL-safe to standard base64
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+
+        // Add padding if needed
+        while (str.length % 4) {
+            str += '=';
+        }
+
+        try {
+            const binary = atob(str);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes;
+        } catch (e) {
+            throw new Error('Invalid Base64 URL-safe string');
+        }
+    }
+};
+
+const {stringToBits, bitsToString} = Utf8Converter;
 const {encode, decode} = base64url;
 
 function getRandomValues(bits= nacl.secretbox.nonceLength ){
     return nacl.randomBytes(bits)
 }
 
-/**
- * Generates a pair of encryption keys consisting of a public key and a private key.
- * The keys are generated using NaCl's cryptographic library and are used for secure communication.
- *
- * @return {{publicKeyBits: Uint8Array, privateKeyBits: Uint8Array}} An object containing the public and private key bits.
- */
 function generateEncryptionKeys() {
     const keyPair = nacl.box.keyPair();
     return {
         publicKeyBits: keyPair.publicKey,
-        privateKeyBits: keyPair.secretKey
+        publicKeyString: encode(keyPair.publicKey),
+        privateKeyBits: keyPair.secretKey,
+        privateKeyString: encode(keyPair.secretKey)
     };
 }
 
@@ -36,28 +103,15 @@ function decrypt(cipherBits, nonceBits, sharedSecretBits){
     return nacl.secretbox.open(cipherBits, nonceBits, sharedSecretBits);
 }
 
-/**
- * Encrypts a message for secure transmission between two parties.
- *
- * @param {Object} from - The sender object containing the public key.
- * @param {Object} to - The recipient object containing the public key and shared secret.
- * @param {string|Object} clearString - The message to be encrypted (can be a string or an object).
- * @param {boolean} [isJSON=true] - Indicates whether the message should be stringified as JSON before encryption.
- * @param {number} [nonceLength=32] - The length of the nonce to be generated, in bytes.
- * @return {Object} An object containing the encrypted message and associated metadata, including:
- * - `from`: Sender's public key string.
- * - `to`: Recipient's public key string.
- * - `nonce`: The encoded nonce used during encryption.
- * - `message`: The encoded encrypted message.
- */
-function encryptMessage(from, to, clearString, isJSON = true) {
-    clearString = isJSON ? JSON.stringify(clearString) : clearString;
-    let clearBits = stringToBits(clearString);
+// We encrypt the message and build an envelope around it. Final stringify is left for the caller.
+function encryptMessage(from, to, clearMessage, type="MESSAGE", isJSON = true) {
+    clearMessage = isJSON ? JSON.stringify(clearMessage) : clearMessage;
+    let clearBits = stringToBits(clearMessage);
     let nonceBits = getRandomValues();
     let cipherBits = encrypt(clearBits, nonceBits, to.sharedSecret);
 
-    // encode the nonce and message for transport
-    return {
+    return  {
+        type,
         from: from.publicKeyString,
         to: to.publicKeyString,
         nonce: encode(nonceBits),
@@ -65,54 +119,19 @@ function encryptMessage(from, to, clearString, isJSON = true) {
     };
 }
 
-/**
- * Decrypts an encrypted message contained in the provided envelope using a shared secret.
- *
- * @param {Object} envelop - The envelope containing the encrypted data. It should have `nonce` and `message` properties.
- * @param {string} sharedSecret - The shared secret used to decrypt the message.
- * @param {boolean} [isJSON=true] - Indicates whether the decrypted message should be parsed as JSON. Defaults to true.
- * @return {(Object|string)} Returns the decrypted message as a parsed JSON object if `isJSON` is true, or as a plain string otherwise.
- */
-function decryptMessage(envelop, sharedSecret, isJSON = true) {
-    let nonceBits = decode(envelop.nonce);
-    let cipherBits = decode(envelop.message);
+// Decrypt the message contained in the envelop. Initial json.parse is left for the caller.
+function decryptMessage(envelope, sharedSecret, isJSON = true) {
+    let nonceBits = decode(envelope.nonce);
+    let cipherBits = decode(envelope.message);
 
-    let plainBits = decrypt(cipherBits, nonceBits, sharedSecret);
-    let plainString = bitsToString(plainBits);
+    let clearBits = decrypt(cipherBits, nonceBits, sharedSecret);
+    let clearString = bitsToString(clearBits);
 
-    return isJSON ? JSON.parse(plainString) : plainString;
+    return isJSON ? JSON.parse(clearString) : clearString;
 }
 
-function generateSigningKeys() {
-    const keyPair = nacl.sign.keyPair();
-    return {
-        publicSigningKeyBits: keyPair.publicKey,
-        privateSigningKeyBits: keyPair.secretKey
-    };
-}
-
-/**
- * Sign data with a private key
- * @returns {string} Base64 encoded signature
- * @param privateSigningKeyBits
- * @param dataBits
- */
-function sign(privateSigningKeyBits, dataBits) {
-    return nacl.sign.detached(dataBits, privateSigningKeyBits);
-}
-
-/**
- * Verify a signature
- * @returns {boolean} True if signature is valid
- * @param publicSigningKeyBits
- * @param signatureBits
- * @param dataBits
- */
-function validateSignature(publicSigningKeyBits, signatureBits, dataBits) {
-    return nacl.sign.detached.verify(dataBits, signatureBits, publicSigningKeyBits);
-}
 
 export {
-    generateEncryptionKeys, deriveSharedSecret, encryptMessage, decryptMessage,
-    generateSigningKeys, sign, validateSignature
+    generateEncryptionKeys, deriveSharedSecret, encryptMessage, decryptMessage, getRandomValues,
+    encode, decode, stringToBits, bitsToString
 }
