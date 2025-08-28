@@ -1,10 +1,14 @@
 # This example demonstrates:
-1. Generating an Ed25519 keypair
-2. Deriving an X25519 keypair from the Ed25519 key
-3. Performing a Diffie-Hellman key exchange
-4. Using the shared secret to encrypt/decrypt a message
+1. Generating an Ed25519 keypair for signing
+2. ~~Deriving an X25519 keypair from the Ed25519 key with ed2curve~~
+3. Generate an X25519 keypair for encryption
+4. Perform a Diffie-Hellman key exchange
+5. Usie the shared secret to encrypt/decrypt a message
 
-> Note: This example ignores the `subtle crypto API` and uses the `tweetnacl-js` library. Because `tweetnacl` uses commonjs imports, I had to add `rollup` to the project and convert it to es modules during `package.json` `copy` script.
+> Note: This example ignores the `subtle crypto API` and uses the `tweetnacl-js` library.
+
+This is an exercise of the tweetnacl library, learning the basics with minimal ceremony.
+For a higher level, more realistic use-case, see [crypto.md](crypto.md)
 ```html
 
 
@@ -16,7 +20,8 @@
 ```
 
 ```js
-import nacl from '/vendor/nacl.js'
+import nacl from '/vendor/nacl.js';
+
 /**
  * Alice and Bob's communication workflow with correct key generation
  */

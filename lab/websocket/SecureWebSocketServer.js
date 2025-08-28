@@ -1,4 +1,4 @@
-import crypto from './crypto.js';
+import * as crypto from './crypto.js';
 
 /**
  * ServerSecureWebSocket - Server-side secure WebSocket handler
@@ -14,6 +14,15 @@ export default class SecureWebSocketServer {
         this.onerror = null;
     }
 
+    /**
+     * Creates a new instance of SecureWebSocketServer, initializes it with the given parameters,
+     * and returns the instance.
+     *
+     * @param {Object} socket - The socket object to be used for the server.
+     * @param {Function} onsecuremessage - Callback function to handle secure messages. spelled to be consistent with onmessage
+     * @param {number} [registrationTimeout=10000] - Optional timeout value for server registration in milliseconds. Defaults to 10000.
+     * @return {Promise<SecureWebSocketServer>} A promise that resolves to the initialized SecureWebSocketServer instance.
+     */
     static async create(socket, onsecuremessage, registrationTimeout = 10000) {
         const instance = new SecureWebSocketServer(socket, onsecuremessage);
         await instance.initialize(registrationTimeout);
