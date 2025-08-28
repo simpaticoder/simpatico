@@ -5,18 +5,15 @@ The server in this scenario verifies clients and routes messages between connect
 
   1. The client creates a public key on startup and saves it for future use.
   2. The client creates an ordinary websocket and waits for a challenge.
-  3. The server accepts the ordinary websocket, and issues a challenge to the client.
-  4. The client responds to the challenge and can now send messages to other public keys in a secure fashion. 
+  3. The server accepts the ordinary websocket connection, and issues a challenge to the client.
+  4. The client responds to the challenge successfully and can now send messages to other public keys in a secure fashion. 
 
-The asymmetry in usage comes in two ways. 
-The client creates a websocket, whereas the server listens for a new connection and application code is passed the socket.
-The client initiates the registration protocol, and the server waits for that initiation.
+The server challenge is a server public key and clear-text that the client should encrypt proprely
 
 To implement this protocol we will first need to select an encryption library and decide on its usage.
 The built-in browser cryptography primitives are insufficient, so we use nacl.js, based on libsodium.
 We will use the ws node library on the server side, but keep an eye on uSocket as an alternative (it is much faster but also cannot support live cert reloading).
-We will assume that all messages are JSON encoded.
-We will further attempt to support the browser native websocket api with our new type of socket, making it a facade.
+We will assume that all messages are JSON.
 
 It's important to familiarize with the "fixed" or "given" APIs that we are starting with. 
 There are three: 
@@ -25,29 +22,29 @@ There are three:
   3. The node ws API.
   4. The secure websocket protocol
   5. Router logic
+  6. Client logic
 
 
 ## nacl.js API
 
-After exercising nacl.js in the [crypto lab](../crypto.md) lab, several decisions:
+After exercising nacl.js in the [nacl lab](nacl.md) lab, several decisions:
 
- 1. Use Diffie-Helman key exchange. This limits our choice of algorithms and so our choice of keys. We pick Ed25519 algorithm and the related X25519 algo for Diffie-Helman.
- 2. Because the keys are small compared to RSA, the exciting prospect of using them directly as a URL becomes possible using something like a hex string.
- 3. Our protocol will define "public key" as the hex-encoded string representation of the Uint8Array nacl.js expects.
- 4. There are two pairs of keypairs, one for signing and one for encrypting. We pick the encrypting public key as a unique process identifier.
- 5. The native representation of X25519 keys is Uint8Array, which can be [encoded](encoder.js) with [utf8, base64, base64url, hex]. To use in a url we must use either base64url or hex, and because hex is longer we use base64url.
+ 1. Use Diffie-Helman key exchange. This limits our choice of algorithms and so our choice of keys. We pick X25519 algo for Diffie-Helman.
+ 2. Because the keys are small compared to RSA, the exciting prospect of using them directly as a URL becomes possible using base64url
+ 3. Our protocol will define "publicKey" as a base64url encoded string of the Uint8Array nacl.js expects.
+ 5. The native representation of X25519 keys is Uint8Array and we transport using base64url.
 
-Interestingly there is a [library for lzma compression of base64 encoded data](https://gist.github.com/loilo/92220c23567d6ed085a28f2c3e84e311)
+> Interestingly there is a [library for lzma compression of base64 encoded data](https://gist.github.com/loilo/92220c23567d6ed085a28f2c3e84e311)
 However this is probably unnecessary if using `{perMessageDeflate: true}` as an option to `ws`.
 
-> You may come to simpatico.io but your canonical "location" is something like. simpatico.io/7374d29278c1e422d21bccd35fbad464152e5e9832857e827e246a51c05f0177 
+> You may come to simpatico.io but your canonical "location" is something like. simpatico.io/<base64url 32-bits>
 
 ## Websocket API
 
-We pick the basic browser api and node ws via the [simple-websocket lab](simple-websocket.md).
-The client naturally prefers a ClientSecureWebSocket class that replaces WebSocket entirely, whereas the server wants to pass in the websocket.
+We pick the basic browser api and node ws via the [websocket lab](websocket.md).
+The client naturally prefers a SecureWebSocketClient class that replaces WebSocket entirely, whereas the server wants to pass in the websocket.
 The implementation is very similar but *complimentary* in the sense they implement both sides of the same protocol.
-This requires two separate classes, SecureWebSocketServer and a ClientSecureWebSocket, although they can and should share logic particularly around nacl.js.
+This requires two separate classes, SecureWebSocketServer and a SecureWebSocketClient, although they can and should share logic particularly around nacl.js via crypto.js.
 Interesting to note that websocket supports individual message compression using perMessageDeflate header during protocol handshake (and is supported by `ws`)
 See https://websockets.readthedocs.io/en/stable/topics/compression.html We'll leave that alone for now.
 
@@ -84,7 +81,46 @@ switch (data.type) {
 }
 ```
 
+Let's try out `SecureWebSocketClient`. This is an extension of the [crypto lab](crypto.md).
 ```js
-import SecureWebSocketClient from './SecureWebSocketClient';
+import * as crypto from './crypto.js';
+import SecureWebSocketClient from './SecureWebSocketClient.js';
+
+const {stringToBits, bitsToString, encode, decode} = crypto;
+
+// Make a user and contact
+let alice = initializeUser('alice');
+let bob = initializeUser('bob');
+let bobContact = addContact(alice.privateKeyBits, bob.publicKeyString, 'bob');
+alice.contacts = {};
+alice.contacts[bob.publicKeyString] = bob;
+
+let socket = SecureWebSocketClient.create(alice, message => {
+    console.log(message);
+});
+
+function initializeUser(name) {
+    const {privateKeyBits, publicKeyBits} = crypto.generateEncryptionKeys();
+    
+    return {
+        name,
+        publicKeyBits: publicKeyBits,
+        publicKeyString: encode(publicKeyBits),
+        privateKeyBits: publicKeyBits,
+        privateKeyString: encode(privateKeyBits),
+    }
+}
+
+// Add a contact and pre-compute shared secret
+function addContact(fromPrivateKeyBits, toPublicKeyString,  name) {
+    const toPublicKeyBits = decode(toPublicKeyString);
+    const sharedSecret = crypto.deriveSharedSecret(fromPrivateKeyBits, toPublicKeyBits);
+    return {
+        name,
+        publicKeyString: toPublicKeyString,
+        publicKeyBits: toPublicKeyBits,
+        sharedSecret
+    }
+}
 
 ```

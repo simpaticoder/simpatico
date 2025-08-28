@@ -1,12 +1,14 @@
-import * as crypto from './crypto.js';
+import * as crypto from "./crypto.js";
 
+const {encode, decode, stringToBits, bitsToString} = crypto;
 /**
- * ServerSecureWebSocket - Server-side secure WebSocket handler
+ * ServerSecureWebSocket - Server-side secure WebSocket wrapper
  */
 export default class SecureWebSocketServer {
 
-    constructor(socket, onsecuremessage) {
+    constructor(socket, serverKeys, onsecuremessage) {
         this.socket = socket;
+        this.serverKeys = serverKeys;
         this.onsecuremessage = onsecuremessage;
         this.isRegistered = false;
         this.publicKey = null;
@@ -14,17 +16,21 @@ export default class SecureWebSocketServer {
         this.onerror = null;
     }
 
+    static generateKeys(){
+        return crypto.generateEncryptionKeys();
+    }
     /**
      * Creates a new instance of SecureWebSocketServer, initializes it with the given parameters,
      * and returns the instance.
      *
      * @param {Object} socket - The socket object to be used for the server.
+     * @param serverKeys
      * @param {Function} onsecuremessage - Callback function to handle secure messages. spelled to be consistent with onmessage
      * @param {number} [registrationTimeout=10000] - Optional timeout value for server registration in milliseconds. Defaults to 10000.
      * @return {Promise<SecureWebSocketServer>} A promise that resolves to the initialized SecureWebSocketServer instance.
      */
-    static async create(socket, onsecuremessage, registrationTimeout = 10000) {
-        const instance = new SecureWebSocketServer(socket, onsecuremessage);
+    static async create(socket, serverKeys, onsecuremessage, registrationTimeout = 10000) {
+        const instance = new SecureWebSocketServer(socket, serverKeys, onsecuremessage);
         await instance.initialize(registrationTimeout);
         return instance;
     }
@@ -33,34 +39,37 @@ export default class SecureWebSocketServer {
         try {
             await new Promise((resolve, reject) => {
                 // 0. Make a random string, useful only for the lifetime of the registration protocol
-                const nonce = crypto.encode(crypto.randomBytes(32));
+                const nonceBits = crypto.getRandomValues();
+                const messageString = 'Simpatico ' + new Date();
+                const messageBits = stringToBits(messageString);
 
                 // 1. Socket registration protocol handler
                 this.socket.onmessage = (event) => {
                     try {
-                        const data = JSON.parse(event.data);
-                        if (data.type === "CHALLENGE_RESPONSE") {
-                            const { publicKey, signature } = data;
+                        const envelope = JSON.parse(event.data);
 
-                            if (this.verifyRegistration(publicKey, signature, nonce)) {
-                                this.isRegistered = true;
-                                this.publicKey = publicKey;
-                                this.socket.send(JSON.stringify({ type: "REGISTER_SUCCESS" }));
-                                this.socket.onclose = this?.onclose;
-                                this.socket.onerror = this?.onerror;
-                                this.setupSecureMessageHandling();
-                                resolve();
-                            } else {
+                        if (envelope.type === "CHALLENGE_RESPONSE") {
+                            if ( !this.isValidChallengeResponse(envelope, messageBits, nonceBits) ) {
                                 this.socket.send(JSON.stringify({
                                     type: "REGISTER_FAILURE",
-                                    reason: "Invalid signature"
+                                    reason: "Invalid ciphertext"
                                 }));
-                                reject(new Error("Registration failed: Invalid signature"));
+                                reject(new Error("Registration failed: Invalid ciphertext"));
+                                return;
                             }
+
+                            this.isRegistered = true;
+                            this.publicKey = envelope.publicKey;
+                            this.socket.onclose = this?.onclose;
+                            this.socket.onerror = this?.onerror;
+                            this.setupSecureMessageHandling();
+                            this.socket.send(JSON.stringify({ type: "REGISTER_SUCCESS" }));
+                            resolve(this);
+
                         } else {
                             this.socket.send(JSON.stringify({
                                 type: "REGISTER_FAILURE",
-                                reason: "Unexpected message type" + data.type
+                                reason: "Unexpected message type" + envelope.type
                             }));
                             reject(new Error("Registration failed: Unexpected message type"));
                         }
@@ -82,10 +91,12 @@ export default class SecureWebSocketServer {
                     }
                 }, registrationTimeout);
 
-                // 3. Send challenge
+                // 3. Send challenge - server sends clear text server public key, and expect client to properly encrypt it.
                 this.socket.send(JSON.stringify({
-                    type: "CHALLENGE",
-                    nonce
+                    type: 'CHALLENGE',
+                    from: this.serverKeys.publicKeyString,
+                    nonce: encode(nonceBits),
+                    message: messageString,
                 }));
             });
 
@@ -96,23 +107,18 @@ export default class SecureWebSocketServer {
         }
     }
 
-    verifyRegistration(publicKey, signature, nonce) {
-        try {
-            return crypto.verify(publicKey, signature, nonce);
-        } catch (error) {
-            console.error("Signature verification error:", error);
-            return false;
-        }
+    isValidChallengeResponse(envelope, expectedMessageBits, serverNonceBits){
+        if (decode(envelope.nonce) !== serverNonceBits) return false;
+        const clientPublicKeyBits = decode(envelope.publicKey);
+        const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, clientPublicKeyBits);
+        const clearMessageBits = crypto.decryptMessage(envelope, sharedSecret, false);
+        return (clearMessageBits === expectedMessageBits);
     }
 
-    /**
-     * Steady-state message handling - do some basic checking of the message envelop, and call onsecuremessage(data).
-     */
     setupSecureMessageHandling() {
         this.socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                const {type, from, to, content} = data; //check that the message envelope is the right shape
                 if (data.type === "MESSAGE") {
                     this?.onsecuremessage(data, this);
                 }
