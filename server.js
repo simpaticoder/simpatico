@@ -172,10 +172,11 @@ class Reflector {
 
         // Create WebSocket server if enabled
         if (this.config.enableWebsockets) {
+            const serverKeys = SecureWebSocketServer.generateKeys();
             new WebSocketServer({
                 server: this.config.useTls ? httpsServer : httpServer,
                 perMessageDeflate: true
-            }).on('connection', this.chatServerLogic);
+            }).on('connection', (ws) => this.chatServerLogic(ws, serverKeys));
             result.ws = this.config.useTls ? this.config.https : this.config.http;
         }
 
@@ -546,14 +547,11 @@ class Reflector {
     // Chat Server Logic
     // ================================================================
 
-    // it's an open question where to put abuse prevention measures, here or in the SecureWebSocketServer class.
-    // we check here for structural validity and value validity. need to check message size and frequency.
-    // we additionally may want to support a keepalive ping, either from the server or client.
-    chatServerLogic(ws) {
-        SecureWebSocketServer.create(ws, 1000)
+    chatServerLogic(ws, serverKeys) {
+        SecureWebSocketServer.create(ws, serverKeys, 1000)
             .then(secureSocket=> {
                 // if a socket is already registered to the public key, send an error and close it.
-                if (hasProp(this.connections, secureSocket.publicKey)) {
+                if (hasProp(this.connections, secureSocket.publicKey) ) {
                     secureSocket.socket.send({error: "SOCKET_ALREADY_REGISTERED"});
                     secureSocket.close();
                     return;
@@ -566,12 +564,11 @@ class Reflector {
                 secureSocket.onsecuremessage = this.messageRouter;
                 // not sure if this is useful, but there may be a delay between registration completion and ready to consume messages.
                 secureSocket.send({type: "READY"});
+            }).catch(ex => {
+                console.error(ex);
             });
     }
     registerSocket(secureSocket){
-        if (!secureSocket.isRegistered){
-            throw 'Cannot register when secureSocket.isRegistered==false';
-        }
         this.connections[secureSocket.publicKey] = secureSocket;
     }
     unregisterSocket(secureSocket) {

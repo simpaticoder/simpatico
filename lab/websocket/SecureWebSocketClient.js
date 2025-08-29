@@ -1,6 +1,6 @@
 import * as crypto from "./crypto.js";
 
-const {encode, decode} = crypto;
+const {encode, decode, stringToBits, bitsToString} = crypto;
 
 export default class SecureWebSocketClient {
 
@@ -25,10 +25,6 @@ export default class SecureWebSocketClient {
         // Step 1: Wait for connection to establish
         await new Promise((resolve, reject) => {
             this.socket.onopen = () => {
-                this.socket.send(JSON.stringify({
-                    type: "REGISTER",
-                    publicKey: this.user.publicKeyString,
-                }))
                 resolve(this);
             };
 
@@ -44,22 +40,16 @@ export default class SecureWebSocketClient {
         // Step 2: Register public key with the server 3-way challenge response protocol.
         await new Promise((resolve, reject) => {
 
-            // Start listening for registration challenge.
+
             this.socket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                const nonceBits = decode(data.nonce);
-                const serverPublicKeyBits = decode(data.publicKey);
-
-                const encryptedNonceBits = crypto.encryptMessage(this.user.privateSigningKeyBits, nonceBits);
-
-                switch (data.type) {
+                const envelope = JSON.parse(event.data);
+                switch (envelope.type) {
                     case "CHALLENGE":
-                        // Send back the signed nonce
-                        this.socket.send(JSON.stringify({
-                            type: "CHALLENGE_RESPONSE",
-                            publicSigningKeyString: this.user.publicSigningKeyString,
-                            signedNonceString: encode(signedNonceBits)
-                        }));
+                        const serverPublicKeyBits = decode(envelope.from);
+                        const nonceBits = decode(envelope.nonce);
+                        const sharedSecret = crypto.deriveSharedSecret(this.user.privateKeyBits, serverPublicKeyBits);
+                        const challengeResponseEnvelope = crypto.encryptMessage(this.user, {sharedSecret}, envelope.message, "CHALLENGE_RESPONSE", false, nonceBits);
+                        this.socket.send(JSON.stringify(challengeResponseEnvelope));
                         break;
 
                     case "REGISTER_SUCCESS":

@@ -38,14 +38,16 @@ export default class SecureWebSocketServer {
     async initialize(registrationTimeout) {
         try {
             await new Promise((resolve, reject) => {
-                // 0. Make a random string, useful only for the lifetime of the registration protocol
+
+                // 0. Make a random challenge string
                 const nonceBits = crypto.getRandomValues();
-                const messageString = 'Simpatico ' + new Date();
+                const messageString = 'Simpatico Welcomes You! ' + new Date();
                 const messageBits = stringToBits(messageString);
 
-                // 1. Socket registration protocol handler
+                // 1. Temporarily assign a registration protocol handler
                 this.socket.onmessage = (event) => {
                     try {
+                        // Check if the client can successfully encrypt random string to our public key
                         const envelope = JSON.parse(event.data);
 
                         if (envelope.type === "CHALLENGE_RESPONSE") {
@@ -71,14 +73,14 @@ export default class SecureWebSocketServer {
                                 type: "REGISTER_FAILURE",
                                 reason: "Unexpected message type" + envelope.type
                             }));
-                            reject(new Error("Registration failed: Unexpected message type"));
+                            reject(new Error("Registration failed: Unexpected message type: " + envelope.type));
                         }
                     } catch (error) {
                         reject(new Error(`Registration error: ${error.message}`));
                     }
                 };
 
-                // 2. General error mode handlers
+                // 2. Any close, error, or timeout is a registration failure.
                 this.socket.onclose = () => {
                     reject(new Error("Connection closed during registration"));
                 };
@@ -91,7 +93,7 @@ export default class SecureWebSocketServer {
                     }
                 }, registrationTimeout);
 
-                // 3. Send challenge - server sends clear text server public key, and expect client to properly encrypt it.
+                // 3. Send challenge - server sends cleartext message string, server public key, and expect we expect the client to properly encrypt it.
                 this.socket.send(JSON.stringify({
                     type: 'CHALLENGE',
                     from: this.serverKeys.publicKeyString,
@@ -103,13 +105,15 @@ export default class SecureWebSocketServer {
             return this;
 
         } catch (error) {
-            throw new Error(`Failed to create secure server connection: ${error.message}`);
+            console.error(`Failed to create secure server connection: ${error.message}`);
         }
     }
 
     isValidChallengeResponse(envelope, expectedMessageBits, serverNonceBits){
-        if (decode(envelope.nonce) !== serverNonceBits) return false;
-        const clientPublicKeyBits = decode(envelope.publicKey);
+        const clientNonceBits = decode(envelope.nonce);
+        const nonceMatches = (clientNonceBits !== serverNonceBits);
+        if (!nonceMatches) return false;
+        const clientPublicKeyBits = decode(envelope.from);
         const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, clientPublicKeyBits);
         const clearMessageBits = crypto.decryptMessage(envelope, sharedSecret, false);
         return (clearMessageBits === expectedMessageBits);

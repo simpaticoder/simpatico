@@ -104,10 +104,9 @@ function decrypt(cipherBits, nonceBits, sharedSecretBits){
 }
 
 // We encrypt the message and build an envelope around it. Final stringify is left for the caller.
-function encryptMessage(from, to, clearMessage, type="MESSAGE", isJSON = true) {
+function encryptMessage(from, to, clearMessage, type="MESSAGE", isJSON = true, nonceBits=getRandomValues()) {
     clearMessage = isJSON ? JSON.stringify(clearMessage) : clearMessage;
     let clearBits = stringToBits(clearMessage);
-    let nonceBits = getRandomValues();
     let cipherBits = encrypt(clearBits, nonceBits, to.sharedSecret);
 
     return  {
@@ -124,6 +123,7 @@ function decryptMessage(envelope, sharedSecret, isJSON = true) {
     let nonceBits = decode(envelope.nonce);
     let cipherBits = decode(envelope.message);
 
+    // TODO: figure out why this is returning null when the server attempts to decrypt client challenge message
     let clearBits = decrypt(cipherBits, nonceBits, sharedSecret);
     let clearString = bitsToString(clearBits);
 
