@@ -1,15 +1,48 @@
 import * as crypto from "./crypto.js";
+const {encode, decode, stringToBits, bitsToString, uint8ArrayEquals} = crypto;
 
-const {encode, decode, stringToBits, bitsToString} = crypto;
+// Debugging - see secure.socket.md for coordination instructions
+const DEBUG = false;
+const testData = (() => {
+    let clientKeys = {
+        "name": "clientKeys",
+        "publicKeyString": "u3I5RMw41QpBtvUcogAZc_N5h3YCTHVWIJV-wlNXgFU",
+        "privateKeyString": "eHkjk5vg6qo6BynuTPTnnSHtFlR8hX8gvuzWvyAiztk"
+    }
+    let serverKeys = {
+        "name": "serverKeys",
+        "publicKeyString": "KOiZFcEslzcVp65XDvZD0Kia7VMFGgtBDq7QFKqDhEE",
+        "privateKeyString": "kpfW8bQ24Ez8s2ABsLRvPEy_30G-IvqOQ2Y6kRHpjXg"
+    }
+    let sharedSecrets = {
+        client: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
+        server: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
+    }
+    let nonceString = "XKBo0GHfKEXBYp_HPdWVX6keNbzIOZ2f";
+    let messageString = "Fri Aug 29 2025 15:19:31 GMT-0400 (Eastern Daylight Time)";
+
+    clientKeys.publicKeyBits = decode(clientKeys.publicKeyString);
+    clientKeys.privateKeyBits = decode(clientKeys.privateKeyString);
+    serverKeys.publicKeyBits = decode(serverKeys.publicKeyString);
+    serverKeys.privateKeyBits = decode(serverKeys.privateKeyString);
+    sharedSecrets.clientBits = decode(sharedSecrets.client);
+    sharedSecrets.serverBits = decode(sharedSecrets.server);
+
+    return {
+        clientKeys, serverKeys, sharedSecrets,
+        nonceString, nonceBits: decode(nonceString), messageString
+    };
+})();
 
 export default class SecureWebSocketClient {
-
-    // user has all the keys and contacts
     constructor(user, onmessage) {
         this.user = user;
         this.onmessage = onmessage;
+        this.onclose = null;
+        this.onerror = null;
         this.isRegistered = false;
 
+        // compute the correct websocket url and create a low-level Websocket
         this.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         this.wsUrl = `${this.protocol}//${window.location.host}/${user.publicKeyString}`;
         this.socket = new WebSocket(this.wsUrl);
@@ -22,78 +55,96 @@ export default class SecureWebSocketClient {
     }
 
     async initialize(registrationTimeout){
+
         // Step 1: Wait for connection to establish
         await new Promise((resolve, reject) => {
             this.socket.onopen = () => {
+                console.debug('1. Client opens a websocket')
                 resolve(this);
-            };
-
-            this.socket.onclose = () => {
-                reject(new Error("Failed to establish connection"));
-            };
-
-            this.socket.onerror = (error) => {
-                reject(new Error(`Connection error: ${error}`));
-            };
+            }
+            this.socket.onclose = () => reject(new Error("Failed to establish connection"));
+            this.socket.onerror = (error) => reject(new Error(`Connection error: ${error}`));
         });
 
-        // Step 2: Register public key with the server 3-way challenge response protocol.
+        // Step 2: Wait for server challenge.
         await new Promise((resolve, reject) => {
-
-
             this.socket.onmessage = (event) => {
                 const envelope = JSON.parse(event.data);
                 switch (envelope.type) {
                     case "CHALLENGE":
+
+                        console.debug("2. Client receive challengeEnvelope", envelope);
                         const serverPublicKeyBits = decode(envelope.from);
                         const nonceBits = decode(envelope.nonce);
+
+                        if (DEBUG){
+                            console.assert(envelope.from === testData.serverKeys.publicKeyString);
+                        }
                         const sharedSecret = crypto.deriveSharedSecret(this.user.privateKeyBits, serverPublicKeyBits);
-                        const challengeResponseEnvelope = crypto.encryptMessage(this.user, {sharedSecret}, envelope.message, "CHALLENGE_RESPONSE", false, nonceBits);
+
+                        console.debug("2a. Client derives shared secret ", encode(sharedSecret));
+                        console.debug("serverPublicKey, clientPublicKey", [envelope.from, this.user.publicKeyString]);
+                        // generate an encrypted response - reuse the nonce given by the server.
+                        const challengeResponseEnvelope = crypto.encryptMessage(
+                            this.user, {publicKeyString: envelope.from, sharedSecret},
+                            envelope.challengeText, "CHALLENGE_RESPONSE",
+                            false, nonceBits
+                        );
+                        if (DEBUG){
+                            challengeResponseEnvelope.sharedSecret = encode(sharedSecret);
+                        }
+
+                        console.debug("2b. Client sends encrypted envelope ", challengeResponseEnvelope);
                         this.socket.send(JSON.stringify(challengeResponseEnvelope));
                         break;
 
                     case "REGISTER_SUCCESS":
-                        // Registration successful,  resolve
+                        console.debug('5a. Registration success')
                         this.socket.onmessage = null;
                         this.isRegistered = true;
                         resolve();
                         break;
 
                     case "REGISTER_FAILURE":
-                        // Registration failed
+                        console.debug('5a. Registration failure')
                         this.socket.onmessage = null;
-                        reject(new Error(data.reason || "Registration failed"));
+                        reject(new Error());
                         break;
                 }
             };
 
-            // Set a timeout for the registration process
+            // 2. Any close, error, or timeout is a registration failure.
+            this.socket.onclose = () =>  reject(new Error("Connection closed during registration"));
+            this.socket.onerror = (error) => reject(new Error(`Connection error: ${error.message || error}`));
             setTimeout(() => {
+                if (this.isRegistered) return;
                 this.socket.onmessage = null;
                 reject(new Error("Registration timed out"));
             }, registrationTimeout);
         });
 
         // Step 3: If we got this far, we can receive messages with onmessage (and send())
-        this.socket.onmessage = event => {
-            const envelope = JSON.parse(event.data);
-            // we can rely on the server to assert that to, from, nonce, and message are all present.
-            // reject message if not from a contact -- note that we could allow this to be an "introduction" and let the user add the contact.
-            const contact = this.user.contacts[envelope.from];
-            if (contact === null) throw 'contact not found in user contacts ' + envelope.from;
+        this.socket.onmessage = this.receive;
+        this.socket.onclose = this.close;
+        this.socket.onerror = err => this?.onerror(err);
+    }
 
-            try {
-                const decryptedMessageObject = crypto.decryptMessage(envelope, contact.sharedSecret);
-                this.onmessage(null, {
-                    type: "MESSAGE",
-                    from: contact,
-                    message: decryptedMessageObject
-                });
-            } catch (error) {
-                this.onmessage(new Error("Failed to decrypt message", {cause: {error, packet}}));
-            }
-        };
-        this.socket.onerror = err => this.onmessage(err);
+    // pass decrypted message to this.onmessage()
+    receive({data}){
+        const envelope = JSON.parse(data);
+        const contact = this.user.contacts[envelope.from];
+        if (contact === null) throw 'contact not found in user contacts ' + envelope.from;
+
+        try {
+            const decryptedMessageObject = crypto.decryptMessage(envelope, contact.sharedSecret);
+            this.onmessage(null, {
+                type: "MESSAGE",
+                from: contact,
+                message: decryptedMessageObject
+            });
+        } catch (error) {
+            this.onmessage(new Error("Failed to decrypt message", {cause: {error, packet}}));
+        }
     }
 
     /**
@@ -123,7 +174,9 @@ export default class SecureWebSocketClient {
      * Close the connection
      */
     close() {
-        this.socket.close();
+        if (this.socket.readyState !== this.socket.CLOSED) {
+            this.socket.close();
+        }
         this.isRegistered = false;
     }
 

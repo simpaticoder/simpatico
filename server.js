@@ -62,7 +62,7 @@ class Reflector {
             useCache: true,
             useGzip: true,
             useTls: false,
-            enableWebsockets: false,
+            enableWebsockets: true,
             logFileServerRequests: true,
             superCacheEnabled: false,
             debug: false,
@@ -172,7 +172,7 @@ class Reflector {
 
         // Create WebSocket server if enabled
         if (this.config.enableWebsockets) {
-            const serverKeys = SecureWebSocketServer.generateKeys();
+            const serverKeys = SecureWebSocketServer.generateKeys('server-seed-456');
             new WebSocketServer({
                 server: this.config.useTls ? httpsServer : httpServer,
                 perMessageDeflate: true
@@ -547,28 +547,29 @@ class Reflector {
     // Chat Server Logic
     // ================================================================
 
-    chatServerLogic(ws, serverKeys) {
-        SecureWebSocketServer.create(ws, serverKeys, 1000)
-            .then(secureSocket=> {
-                // if a socket is already registered to the public key, send an error and close it.
-                if (hasProp(this.connections, secureSocket.publicKey) ) {
-                    secureSocket.socket.send({error: "SOCKET_ALREADY_REGISTERED"});
-                    secureSocket.close();
-                    return;
-                }
+    async chatServerLogic(ws, serverKeys) {
+        try{
+            const secureSocket = await SecureWebSocketServer.create(ws, serverKeys, 1000);
 
-                // add the socket to connections, and setup its handlers.
-                this.registerSocket(secureSocket);
-                secureSocket.onclose = this.unregisterSocket;
-                secureSocket.onerror = this.unregisterSocket;
-                secureSocket.onsecuremessage = this.messageRouter;
-                // not sure if this is useful, but there may be a delay between registration completion and ready to consume messages.
-                secureSocket.send({type: "READY"});
-            }).catch(ex => {
-                console.error(ex);
-            });
+            // if a socket is already registered to the public key, send an error and close it.
+            if (hasProp(this.connections, secureSocket.publicKey) ) {
+                secureSocket.socket.send(JSON.stringify({error: "SOCKET_ALREADY_REGISTERED"}));
+                secureSocket.close();
+                return;
+            }
+
+            // add the socket to connections, and setup its handlers.
+            this.registerSocket(secureSocket);
+            secureSocket.onclose = this.unregisterSocket;
+            secureSocket.onerror = this.unregisterSocket;
+            secureSocket.onsecuremessage = this.messageRouter;
+        } catch (ex){
+            console.error(ex);
+        }
     }
+
     registerSocket(secureSocket){
+        console.debug('register socket called for key ' + secureSocket.publicKey);
         this.connections[secureSocket.publicKey] = secureSocket;
     }
     unregisterSocket(secureSocket) {

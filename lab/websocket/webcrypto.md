@@ -18,7 +18,6 @@ crypto.subtle.generateKey(
     true,
     ["deriveKey", "deriveBits"]
 ).then(() => console.log("X25519 supported"))
-.catch(e => console.log("X25519 not supported:", e));
 ```
 
 Here is the [crypto lab](crypto.md) adapted for WebCrypto:

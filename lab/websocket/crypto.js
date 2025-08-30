@@ -13,7 +13,7 @@ const Utf8Converter = (() => {
         typeof process.versions.node === 'string';
     if (isNode) {
         return {
-            stringToBits: str => Buffer.from(str, 'utf-8'),
+            stringToBits: str => new Uint8Array(Buffer.from(str, 'utf-8')),
             bitsToString: arr => Buffer.from(arr).toString('utf-8'),
         };
     } else {
@@ -74,12 +74,43 @@ const base64url = {
 const {stringToBits, bitsToString} = Utf8Converter;
 const {encode, decode} = base64url;
 
+function uint8ArrayEquals(arr1, arr2) {
+    if (arr1.length !== arr2.length) return false;
+    for (let i = 0; i < arr1.length; i++) {
+        if (arr1[i] !== arr2[i]) return false;
+    }
+    return true;
+}
+
 function getRandomValues(bits= nacl.secretbox.nonceLength ){
     return nacl.randomBytes(bits)
 }
 
-function generateEncryptionKeys() {
-    const keyPair = nacl.box.keyPair();
+// seeded generation is useful for testing
+function generateEncryptionKeys(seed) {
+    let keyPair;
+    if (seed) {
+        // Ensure exactly 32 bytes for the secret key
+        let seedBytes;
+        if (typeof seed === 'string') {
+            // Hash the string to get consistent 32 bytes
+            const fullSeed = stringToBits(seed.padEnd(32, '0')); // Pad if needed
+            seedBytes = new Uint8Array(32);
+            for (let i = 0; i < 32; i++) {
+                seedBytes[i] = fullSeed[i % fullSeed.length];
+            }
+        } else {
+            // Ensure numeric seed becomes exactly 32 bytes
+            seedBytes = new Uint8Array(32);
+            seedBytes.fill(seed & 0xFF); // Use only the low byte
+        }
+
+        console.log("Seed bytes length:", seedBytes.length); // Should be 32
+        keyPair = nacl.box.keyPair.fromSecretKey(seedBytes);
+    } else {
+        keyPair = nacl.box.keyPair();
+    }
+
     return {
         publicKeyBits: keyPair.publicKey,
         publicKeyString: encode(keyPair.publicKey),
@@ -87,12 +118,8 @@ function generateEncryptionKeys() {
         privateKeyString: encode(keyPair.secretKey)
     };
 }
-
 function deriveSharedSecret(privateKeyBits, publicKeyBits){
-    return nacl.scalarMult(
-        privateKeyBits,
-        publicKeyBits
-    );
+    return nacl.box.before(publicKeyBits, privateKeyBits);
 }
 
 function encrypt(clearBits, nonceBits, sharedSecretBits){
@@ -118,7 +145,7 @@ function encryptMessage(from, to, clearMessage, type="MESSAGE", isJSON = true, n
     };
 }
 
-// Decrypt the message contained in the envelop. Initial json.parse is left for the caller.
+// Decrypt the message contained in the envelope. Initial json.parse is left for the caller.
 function decryptMessage(envelope, sharedSecret, isJSON = true) {
     let nonceBits = decode(envelope.nonce);
     let cipherBits = decode(envelope.message);
@@ -133,5 +160,5 @@ function decryptMessage(envelope, sharedSecret, isJSON = true) {
 
 export {
     generateEncryptionKeys, deriveSharedSecret, encryptMessage, decryptMessage, getRandomValues,
-    encode, decode, stringToBits, bitsToString
+    encode, decode, stringToBits, bitsToString, uint8ArrayEquals
 }
