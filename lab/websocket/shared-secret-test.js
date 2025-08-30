@@ -1,21 +1,30 @@
 import * as crypto from './crypto.js';
 const {encode, decode, stringToBits, bitsToString} = crypto;
 
-let alice = {
-    "name": "alice",
-    "publicKeyString": "u3I5RMw41QpBtvUcogAZc_N5h3YCTHVWIJV-wlNXgFU",
-    "privateKeyString": "eHkjk5vg6qo6BynuTPTnnSHtFlR8hX8gvuzWvyAiztk"
+let data = {
+    client: {
+        publicKey: 'QW17q0hnZxzGyPNjToXtqBiCvcyxMA9o9ZbzwMOziw0',
+        privateKey: 'Y2xpZW50LXNlZWQtMTIzMDAwMDAwMDAwMDAwMDAwMDA',
+        sharedSecret: 'Mfpc3JDxXVYK47kL6ZoaFPqT0OfiCwe0cbMIVNhmid0'
+    },
+    server: {
+        publicKey: 'JAYrwjVrveFvh2DPXQUtsKpGTuFM3qtC1Jk1YH_nfkg',
+        privateKey: 'amHjhuKE0HeqKOfYmZ45dbUXQgOop6-Sl7NuKM-3G2A',
+        sharedSecret: '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E'
+    }
 }
+let {client, server} = data;
 
-let bob = {
-    "name": "bob",
-    "publicKeyString": "KOiZFcEslzcVp65XDvZD0Kia7VMFGgtBDq7QFKqDhEE",
-    "privateKeyString": "kpfW8bQ24Ez8s2ABsLRvPEy_30G-IvqOQ2Y6kRHpjXg"
-}
 
-let aliceSharedSecret = crypto.deriveSharedSecret(decode(alice.privateKeyString), decode(bob.publicKeyString));
-let bobSharedSecret = crypto.deriveSharedSecret(decode(bob.privateKeyString), decode(alice.publicKeyString));
+let clientSharedSecret = crypto.deriveSharedSecret(decode(client.privateKey), decode(server.publicKey));
+let serverSharedSecret = crypto.deriveSharedSecret(decode(server.privateKey), decode(client.publicKey));
 
-console.log(encode(aliceSharedSecret), encode(bobSharedSecret));
-// Browser: 8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks 8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks
-// Node: 8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks 8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks
+console.log(encode(clientSharedSecret), encode(serverSharedSecret));
+
+const results= {node:{}, browser:{}};
+results.node.client = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+results.node.server = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+results.browser.client = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+results.browser.server = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+
+// Result: the client shared secret is WRONG for some reason

@@ -2,37 +2,7 @@ import * as crypto from "./crypto.js";
 const {encode, decode, stringToBits, bitsToString, uint8ArrayEquals} = crypto;
 
 // Debugging - see secure.socket.md for coordination instructions
-const DEBUG = false;
-const testData = (() => {
-    let clientKeys = {
-        "name": "clientKeys",
-        "publicKeyString": "u3I5RMw41QpBtvUcogAZc_N5h3YCTHVWIJV-wlNXgFU",
-        "privateKeyString": "eHkjk5vg6qo6BynuTPTnnSHtFlR8hX8gvuzWvyAiztk"
-    }
-    let serverKeys = {
-        "name": "serverKeys",
-        "publicKeyString": "KOiZFcEslzcVp65XDvZD0Kia7VMFGgtBDq7QFKqDhEE",
-        "privateKeyString": "kpfW8bQ24Ez8s2ABsLRvPEy_30G-IvqOQ2Y6kRHpjXg"
-    }
-    let sharedSecrets = {
-        client: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
-        server: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
-    }
-    let nonceString = "XKBo0GHfKEXBYp_HPdWVX6keNbzIOZ2f";
-    let messageString = "Fri Aug 29 2025 15:19:31 GMT-0400 (Eastern Daylight Time)";
-
-    clientKeys.publicKeyBits = decode(clientKeys.publicKeyString);
-    clientKeys.privateKeyBits = decode(clientKeys.privateKeyString);
-    serverKeys.publicKeyBits = decode(serverKeys.publicKeyString);
-    serverKeys.privateKeyBits = decode(serverKeys.privateKeyString);
-    sharedSecrets.clientBits = decode(sharedSecrets.client);
-    sharedSecrets.serverBits = decode(sharedSecrets.server);
-
-    return {
-        clientKeys, serverKeys, sharedSecrets,
-        nonceString, nonceBits: decode(nonceString), messageString
-    };
-})();
+let DEBUG = true;
 
 export default class SecureWebSocketClient {
     constructor(user, onmessage) {
@@ -48,7 +18,8 @@ export default class SecureWebSocketClient {
         this.socket = new WebSocket(this.wsUrl);
     }
 
-    static async create(user, onmessage, registrationTimeout = 10000){
+    static async create(user, onmessage, registrationTimeout = 10000, DEBUG_FLAG){
+        DEBUG = DEBUG_FLAG;
         const instance = new SecureWebSocketClient(user, onmessage);
         await instance.initialize(registrationTimeout);
         return instance;
@@ -59,7 +30,7 @@ export default class SecureWebSocketClient {
         // Step 1: Wait for connection to establish
         await new Promise((resolve, reject) => {
             this.socket.onopen = () => {
-                console.debug('1. Client opens a websocket')
+                console.debug('1. Client opens a websocket');
                 resolve(this);
             }
             this.socket.onclose = () => reject(new Error("Failed to establish connection"));
@@ -72,15 +43,19 @@ export default class SecureWebSocketClient {
                 const envelope = JSON.parse(event.data);
                 switch (envelope.type) {
                     case "CHALLENGE":
-
                         console.debug("2. Client receive challengeEnvelope", envelope);
                         const serverPublicKeyBits = decode(envelope.from);
                         const nonceBits = decode(envelope.nonce);
 
-                        if (DEBUG){
-                            console.assert(envelope.from === testData.serverKeys.publicKeyString);
-                        }
+                        // one or both of these arguments is wrong
+                        console.info(encode(this.user.privateKeyBits), envelope.from)
                         const sharedSecret = crypto.deriveSharedSecret(this.user.privateKeyBits, serverPublicKeyBits);
+                        if (DEBUG){
+                            // use server private key to rederive the shared secret
+                            const serverSharedSecret= crypto.deriveSharedSecret(decode(envelope.serverPrivateKey), this.user.publicKeyBits);
+                            // FAIL  - check consistency with locally derived shared secret
+                            console.assert(uint8ArrayEquals(sharedSecret, serverSharedSecret), "check consistency with locally derived shared secret");
+                        }
 
                         console.debug("2a. Client derives shared secret ", encode(sharedSecret));
                         console.debug("serverPublicKey, clientPublicKey", [envelope.from, this.user.publicKeyString]);
@@ -92,6 +67,7 @@ export default class SecureWebSocketClient {
                         );
                         if (DEBUG){
                             challengeResponseEnvelope.sharedSecret = encode(sharedSecret);
+                            challengeResponseEnvelope.clientPrivateKey = this.user.privateKeyString;
                         }
 
                         console.debug("2b. Client sends encrypted envelope ", challengeResponseEnvelope);

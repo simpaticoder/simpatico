@@ -2,37 +2,8 @@ import * as crypto from "./crypto.js";
 const {encode, decode, stringToBits, bitsToString, uint8ArrayEquals} = crypto;
 
 // Debugging - see secure.socket.md for coordination instructions
-const DEBUG = false;
-const testData = (() => {
-    let clientKeys = {
-        "name": "clientKeys",
-        "publicKeyString": "u3I5RMw41QpBtvUcogAZc_N5h3YCTHVWIJV-wlNXgFU",
-        "privateKeyString": "eHkjk5vg6qo6BynuTPTnnSHtFlR8hX8gvuzWvyAiztk"
-    }
-    let serverKeys = {
-        "name": "serverKeys",
-        "publicKeyString": "KOiZFcEslzcVp65XDvZD0Kia7VMFGgtBDq7QFKqDhEE",
-        "privateKeyString": "kpfW8bQ24Ez8s2ABsLRvPEy_30G-IvqOQ2Y6kRHpjXg"
-    }
-    let sharedSecrets = {
-        client: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
-        server: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
-    }
-    let nonceString = "XKBo0GHfKEXBYp_HPdWVX6keNbzIOZ2f";
-    let messageString = "Fri Aug 29 2025 15:19:31 GMT-0400 (Eastern Daylight Time)";
+const DEBUG = true;
 
-    clientKeys.publicKeyBits = decode(clientKeys.publicKeyString);
-    clientKeys.privateKeyBits = decode(clientKeys.privateKeyString);
-    serverKeys.publicKeyBits = decode(serverKeys.publicKeyString);
-    serverKeys.privateKeyBits = decode(serverKeys.privateKeyString);
-    sharedSecrets.clientBits = decode(sharedSecrets.client);
-    sharedSecrets.serverBits = decode(sharedSecrets.server);
-
-    return {
-        clientKeys, serverKeys, sharedSecrets,
-        nonceString, nonceBits: decode(nonceString), messageString
-    };
-})();
 export default class SecureWebSocketServer {
 
     constructor(socket, serverKeys, onsecuremessage) {
@@ -50,15 +21,14 @@ export default class SecureWebSocketServer {
     }
 
     static async create(socket, serverKeys, onsecuremessage, registrationTimeout = 10000) {
-        if (DEBUG) serverKeys = testData.serverKeys; // static server keys
         const instance = new SecureWebSocketServer(socket, serverKeys, onsecuremessage);
         await instance.initialize(registrationTimeout);
         return instance;
     }
 
     async initialize(registrationTimeout) {
-        const nonceBits = DEBUG ? testData.nonceBits : crypto.getRandomValues();
-        const expectedMessageString = DEBUG ? testData.messageString : 'Simpatico Welcomes You! ' + new Date();
+        const nonceBits = crypto.getRandomValues();
+        const expectedMessageString =  'Simpatico Welcomes You! ' + new Date();
 
         await new Promise((resolve, reject) => {
             this.socket.onmessage = (event) => {
@@ -67,23 +37,31 @@ export default class SecureWebSocketServer {
                     switch (envelope.type) {
                         case "CHALLENGE_RESPONSE":
                             console.debug("3. Server receive challengeResponseEnvelope", envelope);
-                            if (DEBUG) {
-                                console.assert(envelope.from === testData.clientKeys.publicKeyString);
-                                console.assert(envelope.to === this.serverKeys.publicKeyString);
-                            }
+                            console.assert(envelope.to === this.serverKeys.publicKeyString);
+
                             const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, decode(envelope.from));
 
                             if (DEBUG) {
-                                console.assert(uint8ArrayEquals(sharedSecret, testData.sharedSecrets.serverBits));
+                                // use client private key to rederive shared secret
+                                const clientSharedSecret = crypto.deriveSharedSecret(decode(envelope.clientPrivateKey), this.serverKeys.publicKeyBits);
+                                // check consistency with locally derived shared secret THIS SUCCEEDS
+                                console.assert(uint8ArrayEquals(sharedSecret, clientSharedSecret), 'server secret should match locally computed client secret');
+                                // FAIL - the locally derived client secret is different than the one the client sends
+                                console.assert(uint8ArrayEquals(decode(envelope.sharedSecret), clientSharedSecret), 'client secret should match locally computed client secret');
                             }
 
                             if (encode(sharedSecret) !== envelope.sharedSecret) {
-                                reject({
-                                    client: envelope.from,
-                                    server: this.serverKeys.publicKeyString,
-                                    clientSharedSecret: envelope.sharedSecret,
-                                    serverSharedSecret: encode(sharedSecret),
-                                });
+                                const client = {
+                                    publicKey: envelope.from,
+                                    privateKey: envelope.clientPrivateKey,
+                                    sharedSecret: envelope.sharedSecret,
+                                }
+                                const server = {
+                                    publicKey: this.serverKeys.publicKeyString,
+                                    privateKey: this.serverKeys.privateKeyString,
+                                    sharedSecret: encode(sharedSecret),
+                                }
+                                reject({client, server});
                                 return;
                                 //throw new Error(`shared secrets don't match \n${encode(sharedSecret)} \n${envelope.sharedSecret}`);
                             }
@@ -100,9 +78,6 @@ export default class SecureWebSocketServer {
                             const clearMessageString = bitsToString(clearMessageBits);
                             const messageMatches = clearMessageString === expectedMessageString;
 
-                            if (DEBUG) {
-                                console.assert(testData.messageString === clearMessageString)
-                            }
 
                             if (nonceMatches && messageMatches) {
                                 console.debug("4a. Server send client success");

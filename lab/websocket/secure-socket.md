@@ -87,6 +87,9 @@ import * as crypto from './crypto.js';
 import SecureWebSocketClient from './SecureWebSocketClient.js';
 const {stringToBits, bitsToString, encode, decode} = crypto;
 
+const DEBUG = true;
+const seed = DEBUG ? 'client-seed-123': undefined;
+
 // Make a user and contact
 let alice = initializeUser('alice');
 let bob = initializeUser('bob');
@@ -94,17 +97,17 @@ let bobContact = addContact(alice.privateKeyBits, bob.publicKeyString, 'bob');
 alice.contacts = {};
 alice.contacts[bob.publicKeyString] = bob;
 
-let socket = SecureWebSocketClient.create(alice, message => {
-    console.log(message);
-});
+let messageHandler = msg => console.log(msg);
+let socket = SecureWebSocketClient.create(alice, messageHandler, 1000, DEBUG);
 
 function initializeUser(name) {
-    const {privateKeyBits, publicKeyBits} = crypto.generateEncryptionKeys('client-seed-123');
+    const {privateKeyBits, publicKeyBits} = crypto.generateEncryptionKeys(seed);
     return {
         name,
-        publicKeyBits: publicKeyBits,
+        publicKeyBits:   publicKeyBits,
         publicKeyString: encode(publicKeyBits),
-        privateKeyBits: publicKeyBits,
+        
+        privateKeyBits:  privateKeyBits,
         privateKeyString: encode(privateKeyBits),
     }
 }
@@ -179,39 +182,44 @@ function addContact(fromPrivateKeyBits, toPublicKeyString,  name) {
 Given the mismatching shared secret, one thing to try was to hard-code  key strings and 
 check against them during the protocol run. 
 My thinking is that if this worked, then it's a transport problem.
-It worked. Sadly there is no good testing framework for this code, so I branched and committed these changes there. It will probably be difficult merging back to master, but so it goes.
+It worked. Sadly there is no good testing framework for this code, so I branched and committed these changes there (see socket-troubleshooting). It will probably be difficult merging back to master, but so it goes.
 
+What we tried:
+1. Reproducing in a simple [script](shared-secret-test.js). Could not reproduce.
+2. Fixing all randomness with hardcoded data on both client and server. Worked fine.
+3. Add a seed to generateKeys to make it reproducible; share privateKeys between processes and compute sharedSecrets twice on client and server.
+
+## Check consistency between browser and node with deriveSharedSecret
 ```js
-const testData = (() => {
-    let clientKeys = {
-        "name": "clientKeys",
-        "publicKeyString": "u3I5RMw41QpBtvUcogAZc_N5h3YCTHVWIJV-wlNXgFU",
-        "privateKeyString": "eHkjk5vg6qo6BynuTPTnnSHtFlR8hX8gvuzWvyAiztk"
-    }
-    let serverKeys = {
-        "name": "serverKeys",
-        "publicKeyString": "KOiZFcEslzcVp65XDvZD0Kia7VMFGgtBDq7QFKqDhEE",
-        "privateKeyString": "kpfW8bQ24Ez8s2ABsLRvPEy_30G-IvqOQ2Y6kRHpjXg"
-    }
-    let sharedSecrets = {
-        client: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
-        server: "8ue5-nNYXjYRHYOZGXT8wA2l0VsAs0yWltdEr8pe5Ks",
-    }
-    let nonceString = "XKBo0GHfKEXBYp_HPdWVX6keNbzIOZ2f";
-    let messageString = "Fri Aug 29 2025 15:19:31 GMT-0400 (Eastern Daylight Time)";
+import * as crypto from './crypto.js';
+const {encode, decode, stringToBits, bitsToString} = crypto;
 
-    clientKeys.publicKeyBits = decode(clientKeys.publicKeyString);
-    clientKeys.privateKeyBits = decode(clientKeys.privateKeyString);
-    serverKeys.publicKeyBits = decode(serverKeys.publicKeyString);
-    serverKeys.privateKeyBits = decode(serverKeys.privateKeyString);
-    sharedSecrets.clientBits = decode(sharedSecrets.client);
-    sharedSecrets.serverBits = decode(sharedSecrets.server);
+let data = {
+    client: {
+        publicKey: 'QW17q0hnZxzGyPNjToXtqBiCvcyxMA9o9ZbzwMOziw0',
+        privateKey: 'Y2xpZW50LXNlZWQtMTIzMDAwMDAwMDAwMDAwMDAwMDA',
+        sharedSecret: 'Mfpc3JDxXVYK47kL6ZoaFPqT0OfiCwe0cbMIVNhmid0'
+    },
+    server: {
+        publicKey: 'JAYrwjVrveFvh2DPXQUtsKpGTuFM3qtC1Jk1YH_nfkg',
+        privateKey: 'amHjhuKE0HeqKOfYmZ45dbUXQgOop6-Sl7NuKM-3G2A',
+        sharedSecret: '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E'
+    }
+}
+let {client, server} = data;
 
-    return {
-        clientKeys, serverKeys, sharedSecrets,
-        nonceString, nonceBits: decode(nonceString), messageString
-    };
-})();
+
+let clientSharedSecret = crypto.deriveSharedSecret(decode(client.privateKey), decode(server.publicKey));
+let serverSharedSecret = crypto.deriveSharedSecret(decode(server.privateKey), decode(client.publicKey));
+
+console.log(encode(clientSharedSecret), encode(serverSharedSecret));
+
+const results= {node:{}, browser:{}};
+results.node.client = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+results.node.server = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+results.browser.client = '';
+results.browser.server = '';
+
 
 ```
 
