@@ -1,7 +1,6 @@
 import * as crypto from "./crypto.js";
 const {encode, decode, stringToBits, bitsToString, uint8ArrayEquals} = crypto;
 
-
 export default class SecureWebSocketClient {
     constructor(user, onmessage) {
         this.user = user;
@@ -22,76 +21,100 @@ export default class SecureWebSocketClient {
         return instance;
     }
 
-    async initialize(registrationTimeout){
+    async initialize(registrationTimeout) {
+        try {
+            await this.waitForConnection();
+            await this.handleRegistration(registrationTimeout);
 
-        // Step 1: Wait for connection to establish
-        await new Promise((resolve, reject) => {
-            this.socket.onopen = () => {
-                console.debug('1. Client opens a websocket');
-                resolve(this);
-            }
+            this.socket.onmessage = event => this.receive(event, this.user);
+            this.socket.onclose = this.close;
+            this.socket.onerror = err => this?.onerror(err);
+
+        } catch (error) {
+            this.cleanup(error);
+        }
+    }
+
+    cleanup(error) {
+        this.isRegistered = false;
+        if (this.socket.readyState !== WebSocket.CLOSED) {
+            this.socket.send(JSON.stringify(error));
+            this.socket.close();
+        }
+        this.socket.onmessage = null;
+        this.socket.onclose = null;
+        this.socket.onerror = null;
+    }
+
+    async waitForConnection() {
+        return new Promise((resolve, reject) => {
+            this.socket.onopen = () => resolve();
             this.socket.onclose = () => reject(new Error("Failed to establish connection"));
             this.socket.onerror = (error) => reject(new Error(`Connection error: ${error}`));
         });
+    }
 
-        // Step 2: Wait for server challenge.
-        await new Promise((resolve, reject) => {
-            try{
-                this.socket.onmessage = (event) => {
-                    const envelope = JSON.parse(event.data);
-                    switch (envelope.type) {
-                        case "CHALLENGE":
-                            console.debug("2. Client receive challengeEnvelope", envelope);
-                            const serverPublicKeyBits = decode(envelope.from);
-                            const nonceBits = decode(envelope.nonce);
+    async handleRegistration(registrationTimeout) {
+        return new Promise((resolve, reject) => {
 
-                            const sharedSecret = crypto.deriveSharedSecret(this.user.privateKeyBits, serverPublicKeyBits);
-                            console.debug("2a. Client derives shared secret ", encode(sharedSecret));
-
-                            // generate an encrypted response - reuse the nonce given by the server.
-                            const challengeResponseEnvelope = crypto.encryptMessage(
-                                this.user, {publicKeyString: envelope.from, sharedSecret},
-                                envelope.challengeText, "CHALLENGE_RESPONSE",
-                                false, nonceBits
-                            );
-
-                            console.debug("2b. Client sends encrypted envelope ", challengeResponseEnvelope);
-                            this.socket.send(JSON.stringify(challengeResponseEnvelope));
-                            break;
-
-                        case "REGISTER_SUCCESS":
-                            console.debug('5a. Registration success')
-                            this.socket.onmessage = null;
-                            this.isRegistered = true;
-                            resolve();
-                            break;
-
-                        case "REGISTER_FAILURE":
-                            console.debug('5a. Registration failure')
-                            this.socket.onmessage = null;
-                            reject(new Error());
-                            break;
-                    }
-                }
-            } catch(ex){
-                console.error(ex);
-                reject(ex);
-            }
-
-            // 2. Any close, error, or timeout is a registration failure.
-            this.socket.onclose = () =>  reject(new Error("Connection closed during registration"));
-            this.socket.onerror = (error) => reject(new Error(`Connection error: ${error.message || error}`));
-            setTimeout(() => {
-                if (this.isRegistered) return;
-                this.socket.onmessage = null;
-                reject(new Error("Registration timed out"));
+            const timeoutId = setTimeout(() => {
+                if (!this.isRegistered) reject(new Error("Registration timed out"));
             }, registrationTimeout);
-        });
 
-        // Step 3: If we got this far, we can receive messages with onmessage (and send())
-        this.socket.onmessage = event => this.receive(event, this.user);
-        this.socket.onclose = this.close;
-        this.socket.onerror = err => this?.onerror(err);
+            this.socket.onmessage = (event) => {
+                const envelope = JSON.parse(event.data);
+                switch (envelope.type) {
+                    case "CHALLENGE":
+                        console.debug("2. Client receive challengeEnvelope", envelope);
+                        const serverPublicKeyBits = decode(envelope.from);
+                        const nonceBits = decode(envelope.nonce);
+
+                        const sharedSecret = crypto.deriveSharedSecret(this.user.privateKeyBits, serverPublicKeyBits);
+                        console.debug("2a. Client derives shared secret ", encode(sharedSecret));
+
+                        // generate an encrypted response - reuse the nonce given by the server.
+                        const to = {publicKeyString: envelope.from, sharedSecret}
+                        const challengeResponseEnvelope = crypto.encryptMessage(
+                            this.user,
+                            to,
+                            envelope.challengeText,
+                            "CHALLENGE_RESPONSE1",
+                            false,
+                            nonceBits
+                        );
+                        console.debug("2b. Client generates challenge response envelope ", challengeResponseEnvelope);
+                        // send the challenge response envelope
+                        this.socket.send(JSON.stringify(challengeResponseEnvelope));
+                        break;
+
+                    case "REGISTER_SUCCESS":
+                        console.debug('5a. Registration success');
+                        this.isRegistered = true;
+                        clearTimeout(timeoutId);
+                        resolve();
+                        break;
+
+                    case "REGISTER_FAILURE":
+                        console.debug('5b. Registration failure');
+                        clearTimeout(timeoutId);
+                        const errorMessage = envelope.error || "Registration failed";
+                        reject(new Error(errorMessage));
+                        break;
+                    default:
+                        reject(new Error('Unexpected message type during registration:', envelope.type));
+                }
+            };
+
+            this.socket.onclose = () => {
+                clearTimeout(timeoutId);
+                reject(new Error("Connection closed during registration"));
+            };
+
+            this.socket.onerror = (error) => {
+                clearTimeout(timeoutId);
+                reject(new Error(`Connection error during registration: ${error.message || error}`));
+            };
+        });
     }
 
     // pass decrypted message to this.onmessage()
@@ -108,7 +131,6 @@ export default class SecureWebSocketClient {
             from: contact,
             message: decryptedMessageObject
         });
-
     }
 
     /**
@@ -143,5 +165,4 @@ export default class SecureWebSocketClient {
         }
         this.isRegistered = false;
     }
-
 }
