@@ -1,9 +1,6 @@
 import * as crypto from "./crypto.js";
 const {encode, decode, stringToBits, bitsToString, uint8ArrayEquals} = crypto;
 
-// Debugging - see secure.socket.md for coordination instructions
-const DEBUG = true;
-
 export default class SecureWebSocketServer {
 
     constructor(socket, serverKeys, onsecuremessage) {
@@ -37,52 +34,12 @@ export default class SecureWebSocketServer {
                     switch (envelope.type) {
                         case "CHALLENGE_RESPONSE":
                             console.debug("3. Server receive challengeResponseEnvelope", envelope);
-                            console.assert(envelope.to === this.serverKeys.publicKeyString);
 
-                            const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, decode(envelope.from));
-
-                            if (DEBUG) {
-                                // use client private key to rederive shared secret
-                                const clientSharedSecret = crypto.deriveSharedSecret(decode(envelope.clientPrivateKey), this.serverKeys.publicKeyBits);
-                                // check consistency with locally derived shared secret THIS SUCCEEDS
-                                console.assert(uint8ArrayEquals(sharedSecret, clientSharedSecret), 'server secret should match locally computed client secret');
-                                // FAIL - the locally derived client secret is different than the one the client sends
-                                console.assert(uint8ArrayEquals(decode(envelope.sharedSecret), clientSharedSecret), 'client secret should match locally computed client secret');
-                            }
-
-                            if (encode(sharedSecret) !== envelope.sharedSecret) {
-                                const client = {
-                                    publicKey: envelope.from,
-                                    privateKey: envelope.clientPrivateKey,
-                                    sharedSecret: envelope.sharedSecret,
-                                }
-                                const server = {
-                                    publicKey: this.serverKeys.publicKeyString,
-                                    privateKey: this.serverKeys.privateKeyString,
-                                    sharedSecret: encode(sharedSecret),
-                                }
-                                reject({client, server});
-                                return;
-                                //throw new Error(`shared secrets don't match \n${encode(sharedSecret)} \n${envelope.sharedSecret}`);
-                            }
-                            console.debug("3a. Server derives shared secret ", encode(sharedSecret), envelope.sharedSecret);
-
-                            const nonceMatches = (encode(nonceBits) === envelope.nonce);
-                            if (!nonceMatches) {
-                                reject(new Error(`nonces don't match: server, client \n${encode(nonceBits)} \n${envelope.nonce} `));
-                                return;
-                            }
-
-                            // decrypt the test message and check equality
-                            const clearMessageBits = crypto.decryptMessage(envelope, sharedSecret, false);
-                            const clearMessageString = bitsToString(clearMessageBits);
-                            const messageMatches = clearMessageString === expectedMessageString;
-
-
-                            if (nonceMatches && messageMatches) {
+                            // the happy case
+                            if (this.isValidChallengeResponse(envelope,expectedMessageString, nonceBits)) {
                                 console.debug("4a. Server send client success");
                                 this.isRegistered = true;
-                                this.publicKey = envelope.publicKey;
+                                this.publicKey = envelope.from;
                                 this.socket.onclose = this?.onclose;
                                 this.socket.onerror = this?.onerror;
                                 this.setupSecureMessageHandling();
@@ -94,8 +51,7 @@ export default class SecureWebSocketServer {
                                     type: "REGISTER_FAILURE",
                                     reason: "Invalid ciphertext"
                                 }));
-                                reject(new Error("Registration failed: Invalid ciphertext"));
-                                return;
+                                throw(new Error("Registration failed: Invalid ciphertext"));
                             }
                             break;
 
@@ -129,28 +85,25 @@ export default class SecureWebSocketServer {
                 nonce: encode(nonceBits),
                 challengeText: expectedMessageString,
             }
-            if (DEBUG){
-                challengeEnvelope.serverPrivateKey = this.serverKeys.privateKeyString;
-            }
-            console.log("1. Server send challengeEnvelope", challengeEnvelope);
             this.socket.send(JSON.stringify(challengeEnvelope));
+            console.log("1. Server send challengeEnvelope", challengeEnvelope);
         });
     }
 
-    isValidChallengeResponse(envelope, expectedMessageString, serverNonceBits){
-        // make sure the client used the right nonce
-        const clientNonceBits = decode(envelope.nonce);
-        const nonceMatches = (clientNonceBits !== serverNonceBits);
-        if (!nonceMatches) return false;
+    isValidChallengeResponse(envelope, expectedMessageString, nonceBits){
+        const serverPublicKeyMatches = envelope.to === this.serverKeys.publicKeyString;
 
-        // decrypt what they sent
-        const clientPublicKeyBits = decode(envelope.from);
-        const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, clientPublicKeyBits);
+        const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, decode(envelope.from));
+        const sharedSecretMatches = encode(sharedSecret) !== envelope.sharedSecret
+        console.debug("3a. Server derives shared secret ", encode(sharedSecret), envelope.sharedSecret);
+
+        const nonceMatches = (encode(nonceBits) === envelope.nonce);
+
+        // decrypt the test message and check equality
         const clearMessageBits = crypto.decryptMessage(envelope, sharedSecret, false);
         const clearMessageString = bitsToString(clearMessageBits);
-
-        // the key is valid if we get what we expect
-        return (clearMessageString === expectedMessageString);
+        const messageMatches = clearMessageString === expectedMessageString;
+        return serverPublicKeyMatches & sharedSecretMatches & nonceMatches && messageMatches;
     }
 
     setupSecureMessageHandling() {

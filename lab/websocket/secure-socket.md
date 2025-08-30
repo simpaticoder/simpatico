@@ -87,7 +87,7 @@ import * as crypto from './crypto.js';
 import SecureWebSocketClient from './SecureWebSocketClient.js';
 const {stringToBits, bitsToString, encode, decode} = crypto;
 
-const DEBUG = true;
+const DEBUG = false;
 const seed = DEBUG ? 'client-seed-123': undefined;
 
 // Make a user and contact
@@ -191,6 +191,7 @@ What we tried:
 
 ## Check consistency between browser and node with deriveSharedSecret
 ```js
+///
 import * as crypto from './crypto.js';
 const {encode, decode, stringToBits, bitsToString} = crypto;
 
@@ -217,12 +218,14 @@ console.log(encode(clientSharedSecret), encode(serverSharedSecret));
 const results= {node:{}, browser:{}};
 results.node.client = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
 results.node.server = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
-results.browser.client = '';
-results.browser.server = '';
-
-
+results.browser.client = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
+results.browser.server = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
 ```
 
+### Resolution
+Turned out to be a typo in initializeUser that assigned `publicKeyBits` to `privateKeyBits`.
+The fact that privateKeyString was set correctly was a big source of the issue.
+No wonder crypto-system authors tend to use "secretKey"
 
 ## Lessons
 

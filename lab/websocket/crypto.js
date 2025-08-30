@@ -150,7 +150,6 @@ function decryptMessage(envelope, sharedSecret, isJSON = true) {
     let nonceBits = decode(envelope.nonce);
     let cipherBits = decode(envelope.message);
 
-    // TODO: figure out why this is returning null when the server attempts to decrypt client challenge message
     let clearBits = decrypt(cipherBits, nonceBits, sharedSecret);
     let clearString = bitsToString(clearBits);
 
