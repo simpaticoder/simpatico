@@ -78,7 +78,7 @@ export default class SecureWebSocketClient {
                             this.user,
                             to,
                             envelope.challengeText,
-                            "CHALLENGE_RESPONSE1",
+                            "CHALLENGE_RESPONSE",
                             false,
                             nonceBits
                         );

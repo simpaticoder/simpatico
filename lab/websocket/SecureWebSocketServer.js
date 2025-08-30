@@ -24,61 +24,76 @@ export default class SecureWebSocketServer {
     }
 
     async initialize(registrationTimeout) {
+        try{
+            await this.handleRegistration(registrationTimeout);
+        } catch (error){
+            this.cleanup(error);
+        }
+
+    }
+
+    cleanup(error) {
+        console.error(error);
+        this.isRegistered = false;
+        if (this.socket.readyState !== WebSocket.CLOSED) {
+            this.socket.send(JSON.stringify({
+                type: "REGISTER_FAILURE",
+                error: error.message,
+            }));
+            this.socket.close();
+        }
+        this.socket.onmessage = null;
+        this.socket.onclose = null;
+        this.socket.onerror = null;
+    }
+
+    async handleRegistration(registrationTimeout){
         const nonceBits = crypto.getRandomValues();
         const expectedMessageString =  'Simpatico Welcomes You! ' + new Date();
 
-        await new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
+
+            const timeoutId = setTimeout(() => {
+                if (!this.isRegistered) reject(new Error("Registration timed out"));
+            }, registrationTimeout);
+
             this.socket.onmessage = (event) => {
-                try {
-                    const envelope = JSON.parse(event.data);
-                    switch (envelope.type) {
-                        case "CHALLENGE_RESPONSE":
-                            console.debug("3. Server receive challengeResponseEnvelope", envelope);
-
-                            // the happy case
-                            if (this.isValidChallengeResponse(envelope,expectedMessageString, nonceBits)) {
-                                console.debug("4a. Server send client success");
-                                this.isRegistered = true;
-                                this.publicKey = envelope.from;
-                                this.socket.onclose = this?.onclose;
-                                this.socket.onerror = this?.onerror;
-                                this.setupSecureMessageHandling();
-                                this.socket.send(JSON.stringify({type: "REGISTER_SUCCESS"}));
-                                resolve(this);
-                            } else {
-                                console.debug("4b. Server send client failure");
-                                this.socket.send(JSON.stringify({
-                                    type: "REGISTER_FAILURE",
-                                    reason: "Invalid ciphertext"
-                                }));
-                                throw(new Error("Registration failed: Invalid ciphertext"));
-                            }
-                            break;
-
-                        default:
-                            this.socket.send(JSON.stringify({
-                                type: "REGISTER_FAILURE",
-                                reason: "Unexpected message type" + envelope.type
-                            }));
-                            throw new Error("Registration failed: Unexpected message type: " + envelope.type);
-                    }
-                } catch (ex) {
-                    console.error(ex);
-                    reject(ex);
+                const envelope = JSON.parse(event.data);
+                switch (envelope.type) {
+                    case "CHALLENGE_RESPONSE":
+                        if (this.isValidChallengeResponse(envelope,expectedMessageString, nonceBits)) {
+                            //console.debug("4a. Server send client success");
+                            this.isRegistered = true;
+                            this.publicKey = envelope.from;
+                            this.socket.onclose = this?.onclose;
+                            this.socket.onerror = this?.onerror;
+                            this.setupSecureMessageHandling();
+                            this.socket.send(JSON.stringify({type: "REGISTER_SUCCESS"}));
+                            clearTimeout(timeoutId);
+                            resolve(this);
+                        } else {
+                            clearTimeout(timeoutId);
+                            reject(new Error("Registration failed: Invalid ciphertext"));
+                        }
+                        break;
+                    default:
+                        clearTimeout(timeoutId);
+                        reject(new Error("Registration failed: Unexpected message type: " + envelope.type));
                 }
             };
 
             // 2. Any close, error, or timeout is a registration failure.
-            this.socket.onclose = () =>  reject(new Error("Connection closed during registration"));
-            this.socket.onerror = (error) =>  reject(new Error(`Connection error: ${error.message || error}`));
-            setTimeout(() => {
-                if (this.isRegistered) return;
-                this.socket.onmessage = null;
-                reject(new Error("Registration timed out"));
-            }, registrationTimeout);
+            this.socket.onclose = () => {
+                clearTimeout(timeoutId);
+                reject(new Error("Connection closed during registration"));
+            };
+
+            this.socket.onerror = (error) => {
+                clearTimeout(timeoutId);
+                reject(new Error(`Connection error during registration: ${error.message || error}`));
+            };
 
             // 3. Kick off the registration process with a Challenge
-            console.log(this.serverKeys);
             const challengeEnvelope = {
                 type: 'CHALLENGE',
                 from: this.serverKeys.publicKeyString,
@@ -86,7 +101,7 @@ export default class SecureWebSocketServer {
                 challengeText: expectedMessageString,
             }
             this.socket.send(JSON.stringify(challengeEnvelope));
-            console.log("1. Server send challengeEnvelope", challengeEnvelope);
+            //console.log("1. Server send challengeEnvelope", challengeEnvelope);
         });
     }
 
@@ -95,7 +110,7 @@ export default class SecureWebSocketServer {
 
         const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, decode(envelope.from));
         const sharedSecretMatches = encode(sharedSecret) !== envelope.sharedSecret
-        console.debug("3a. Server derives shared secret ", encode(sharedSecret), envelope.sharedSecret);
+        //console.debug("3a. Server derives shared secret ", encode(sharedSecret), envelope.sharedSecret);
 
         const nonceMatches = (encode(nonceBits) === envelope.nonce);
 
