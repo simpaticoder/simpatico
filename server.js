@@ -558,10 +558,10 @@ class Reflector {
                 return;
             }
 
-            // add the socket to connections, and setup its handlers.
+            // add the socket to connections and set up its handlers.
             this.registerSocket(secureSocket);
-            secureSocket.onclose = this.unregisterSocket;
-            secureSocket.onerror = this.unregisterSocket;
+            secureSocket.onclose = e => this.unregisterSocket(secureSocket, e);
+            secureSocket.onerror = e => this.unregisterSocket(secureSocket, e);
             secureSocket.onsecuremessage = this.messageRouter;
         } catch (ex){
             console.error(ex);
@@ -572,46 +572,47 @@ class Reflector {
         console.debug('register socket called for key ' + secureSocket.publicKey);
         this.connections[secureSocket.publicKey] = secureSocket;
     }
-    unregisterSocket(secureSocket) {
+    unregisterSocket(secureSocket, e) {
+        console.debug(`unregister socket called for key: ${secureSocket.publicKey} for reason ${e.type}`);
         secureSocket.isRegistered = false;
         delete this.connections[secureSocket.publicKey]
     }
 
-    messageRouter(message, actualFromSocket){
-        const {type, from, to, content} = message;
+    messageRouter(envelope, actualFromSocket){
+        const {type, from, to, message} = envelope;
         const fromSocket = this.connections[from];
         const toSocket = this.connections[to];
 
         if (!fromSocket) {
             // this should basically never happen
-            actualFromSocket.send(Object.assign(message, {error: "SOCKET_NOT_REGISTERED"}));
+            actualFromSocket.send(Object.assign(envelope, {error: "SOCKET_NOT_REGISTERED"}));
             return;
         }
         if (fromSocket !== actualFromSocket){
             // sending with a public key different from the one associated with the socket indicates a potential hacking attempt
-            actualFromSocket.send(Object.assign(message, {error: "MISMATCHED_SOCKET_PUBLIC_KEY"}));
+            actualFromSocket.send(Object.assign(envelope, {error: "MISMATCHED_SOCKET_PUBLIC_KEY"}));
             return;
         }
-        if (content === undefined){
-            // no point in delivering an empty message
-            actualFromSocket.send(Object.assign(message, {error: "MISSING_CONTENT_FIELD"}));
+        if (message === undefined){
+            // no point in delivering an empty envelope
+            actualFromSocket.send(Object.assign(envelope, {error: "MISSING_CONTENT_FIELD"}));
             return;
         }
         if (type !== "MESSAGE"){
             // somewhat arbitrary, but a missing field like this indicates potential other problems.
-            actualFromSocket.send(Object.assign(message, {error: "MISSING_TYPE_MESSAGE"}));
+            actualFromSocket.send(Object.assign(envelope, {error: "MISSING_TYPE_MESSAGE"}));
             return;
         }
 
         if (!toSocket) {
             // this is a common situation where you try to send to a public key that isn't present.
-            actualFromSocket.send(Object.assign(message, {error: "RECIPIENT_NOT_FOUND"}));
+            actualFromSocket.send(Object.assign(message, {error: "RECIPIENT_NOT_AVAILABLE"}));
             return;
         }
 
         // we ran the gauntlet of checks and can route the message!
         toSocket.send(message);
-        // send delivery confirmation
+        // send delivery confirmation - TODO make delivery confirmation lighter-weight
         actualFromSocket.send(Object.assign(message, {type: "MESSAGE_DELIVERED"}));
     }
 
