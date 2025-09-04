@@ -222,10 +222,18 @@ results.browser.client = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
 results.browser.server = '8nBcOFEy9nxA4V0nuwE274_KHNQH4R2svuqX4oc6H4E';
 ```
 
-### Resolution
-Turned out to be a typo in initializeUser that assigned `publicKeyBits` to `privateKeyBits`.
+### Resolution of this bug
+Turned out to be a typo in `initializeUser()` that assigned `publicKeyBits` to `privateKeyBits`.
 The fact that privateKeyString was set correctly was a big source of the issue.
 No wonder crypto-system authors tend to use "secretKey"
+
+## Cryptosystems
+8.30.25 It is very gratifying to have even the basics working. We can generate keypairs in the browser and send ECDH encrypted messages! But this is a very simple and almost certainly not very secure cryptosystem. At the very least we need to use a periodically updated secondary derived symmetric key for encryption to handle a key compromise attack. 
+
+In my research I discovered that [Signal's cryptosystem](https://signal.org/docs/) is well thought-out and anticipates many of the problems this system has. Not only that but they have a comprehensive set of mature, battle-hardened [code](https://github.com/signalapp/Signal-Server) that implements this cryptosystem - and is in fact written in Java! (And not only Java, but the web server portion is done with [dropwizard](https://www.dropwizard.io/en/stable/), which is a personal favorite (much preferable to Spring) and I was unaware it was in use in a major application). So I of course promptly forked the server and have set about building it. I'll write up my notes in [signal lab](signal.md)
+
+Even though Signal is a much better starting point for Simpatico, I'm not ashamed of my work on SecureWebSocket. For one thing, it's constraints are quite different, and that makes it's security better in some ways. For example, public keys are naturally ephemeral (currently the lifetime of the browser tab) making private key leakage less likely, and less important if it does happen. My system is effectively synchronous and the server never stores messages, which removes a large swath of threats. I'm pleased that my own thinking was leading me down the road of [X3DH](https://signal.org/docs/specifications/x3dh/) and [ratcheting](https://signal.org/docs/specifications/doubleratchet/) - even if it would have taken me *years* to achieve the same level of completeness and thoughtfulness of the Signal platform.
+
 
 ## Lessons
 
@@ -233,7 +241,7 @@ No wonder crypto-system authors tend to use "secretKey"
 2. On a related note, crypto (and network!) code is very type-dependant and would certainly benefit from TypeScript. To mitigate this problem I've taken to using a relatively disciplined style and naming convention with variables.
 3. Writing socket wrappers was probably the wrong approach for an MVP. I would have been better off using socket.io which is a mature and well-tested library. Being slow or even bloated on the client side (although it is not; the client is 14kb of code, which is a lot for simpatico standards, but small in every other context.) Other methods (like socket.io, or another type-safe language compiled to WebAssembly) certainly have their drawbacks. One of which is breaking the "minimal dependency" vow I've taken for this project.
 4. Probably should have implemented this protocol purely at the application level over a robust cleartext transport first, then add security on top. This neatly separates concerns. Performance or simplicity goals could be achieved later, incrementally, by forking the transport layer and refactoring more and more security functionality down into the transport layer.
-5. The code *structure* is interesting, but it looks (and feels) nasty. The best idea in the socket code is to use `await new Promise(...)` to handle the transient state with temporary event handlers, and on success register new, steady state handlers. But even here I think the code could be greatly improved by a wiser use of "then()" and passing useful data to "resolve()".
-6. exception handling in promises is subtle and easy to get wrong. I probably need to write a lab about error handling in promises, especially in the kind of pattern here with an async intitialization step.
-7. Splitting code windows between client and server is a good way to trace network code ith your eyes in a way that doesn't require much instrumentation.
-8. Testing this kind of code deserves another lab - and I'd like to take inspiration from socket.io's use of mocha and chai. 
+6. exception handling in promises is subtle and easy to get wrong. I think (hope) I ended up with something close to optimal and idiomatic (and so easy to read and understand).
+7. Splitting code windows between client and server is a good way to trace network code ith your eyes in a way that doesn't require much ceremony.
+8. Testing this kind of code deserves another lab - and I'd like to take inspiration from socket.io's use of mocha and chai.
+9. AI can be as much of a hindrance as a help when it steers you in the wrong direction. Or worse, omits things that might make your task irrelevant or even dangerous. The code it generates is often sub-par and needs considerable rework to be viable. On the upside, it can be useful for starting something that you aren't that familiar with, and of course it excels at answering patiently and correctly well-formed questions about technologies that you are learning.
