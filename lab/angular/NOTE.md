@@ -14,3 +14,14 @@ Thoughts in random order
 8. The code the AI generated has good bones, UI-wise. It even made some useful classes around storing contacts and messages in localStorage. It even had some good ideas about the message format (an id: UUID and sentAt: date.now()). However, all of its socket assumptions are wrong and need to be reworked. It assumes one websockt per client, but in fact I plan to multiplex everything over a single socket. 
 
 In other news I have long known and worked with callbacks and Promises + async/await in JavaScript, and once (professionally) with RxJs in TypeScript (which I really didn't like). However,I recently became aware of [Effect](https://effect.website/) which looks interesting. And of course Angular has `signal()` and React has `hooks` like `useState() useMemo() useEffect()`. So many solutions to the same problem exists. That probably means that programmers haven't really figured out a good solution to "reactivity." 
+
+## 9-5-2025
+
+So there are 3 big problems with the setup right now, and they are somewhat related:
+1. If you refresh the page within the Angular router, you get a 404. That's because the router path isn't "real" in the sense that it doesn't map to a resource. On the file-system, it maps back to the SPA index.html, and then the client routes to the path.
+2. The URL for the angular build is long and nasty. I'd like to make it shorter, like `/angular`.
+3. One of Simpatico's nice features is that it shows you the last edited file as a URL you can click to check it out. I designed this assuming you'd want to access that resource. But with angular, the url and resource are decoupled.
+
+The obvious place to start is with `server.js` and modify `getCandidateFileName()` to know about Angular. Anything that starts with /angular and ends in a file extension we can map to dist directory. This solves 1 and 2. Will need to modify `<base href` to be `/angular/`.
+
+To solve 3, we do the inverse - anything that changes in the dist directory will output the `/angular` url. For extra-credit, we could try to parse `routes.ts` and map a changed source file to a specific route. That seems complicated so I'll leave it for now.

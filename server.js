@@ -410,7 +410,7 @@ class Reflector {
 
         // Strip query parameters
         if (path.indexOf('?') > -1) {
-            path = path.substr(0, path.indexOf('?'));
+            path = path.substring(0, path.indexOf('?'));
         }
 
         // Find matching file
@@ -434,17 +434,31 @@ class Reflector {
     }
 
     getCandidateFiles(path) {
-        if (path.endsWith('/')) {
-            return [path + 'index.md', path + 'index.html', path + 'README.md'];
-        }
-
         const parts = path.split('/');
+        const last = peek(parts);
+        const isFile= /\./.test(last);
+
         if (parts.some(part => part.startsWith('.'))) {
             throw '500 invalid path: ' + path;
         }
 
-        const last = peek(parts);
-        const isFile = /\./.test(last);
+        // Handle Angular paths
+        if (path.startsWith('/angular')) {
+            const dist = '/lab/angular/dist/angular/browser';
+            const subpath = path.slice('/angular'.length);
+
+            if (isFile) {
+                // ensure leading slash
+                const normalized = subpath.startsWith('/') ? subpath : '/' + subpath;
+                return [dist + normalized];
+            }
+            // Otherwise, it's an SPA route – always serve Angular index.html
+            return [dist + '/index.html'];
+        }
+
+        if (path.endsWith('/')) {
+            return [path + 'index.md', path + 'index.html', path + 'README.md'];
+        }
 
         return (isFile) ?
             [path] :
@@ -531,15 +545,21 @@ class Reflector {
                 // Handle JS file changes
                 if (fileName.endsWith('.js')) {
                     const mdFileName = fileName.replace('.js', '.md');
-                    log(`cache invalidated "change" ${this.config.baseUrl}/${mdFileName} based on ${fileName}`);
+                    log(`cache invalidated modified ${this.config.baseUrl}/${mdFileName} based on ${fileName}`);
                 } else {
-                    log(`cache invalidated "change" ${this.config.baseUrl}/${fileName}`);
+                    log(`cache invalidated modified ${this.config.baseUrl}/${fileName}`);
                 }
             })
             .on('unlink', fileName => {
                 const path = process.cwd() + '/' + fileName;
                 delete this.cache[path];
-                log(`cache invalidated "delete" ${path}`);
+                // Handle Angular dist directory changes
+                if (fileName.includes('/dist/angular/browser')) {
+                    log(`cache invalidated replaced ${this.config.baseUrl}/angular `);
+                } else {
+                    log(`cache invalidated deleted ${path}`);
+                }
+
             });
     }
 
