@@ -2,7 +2,8 @@ import {Component, computed, signal} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
-  selector: 'app-root',
+  selector: 'increment-counter',
+  standalone: true,
   imports: [],
   template: `
     <div class="min-h-screen grid place-items-center bg-slate-50 text-slate-800 p-6">
@@ -33,7 +34,7 @@ import { RouterOutlet } from '@angular/router';
   `,
   styles: ''
 })
-export class AppComponent {
+export class IncrementComponent {
   count = signal(1);
   doubleCount= computed(()=>this.count() * 2)
   updateCount = () => {
