@@ -1,16 +1,19 @@
-# Angular
+# Angular & Tailwind Lab
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.2.2.
 
 ## Development server
 
-To start a local development server, run:
+`ng serve` still works, although you may have to modify `<base href=>` in `index.html`. 
+Running in Simpatico requires this:
 
 ```bash
-ng serve
+ng build --watch
 ```
+Then navigate to http://localhost:8080/lab/angular/dist/angular/browser/
+All of it's sub/resources will be cached as usual.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+TODO: it would be nice to make that URL a bit nicer, e.g. map `dist/angular/browser` to `../../..`
 
 ## Code scaffolding
 
@@ -51,9 +54,3 @@ For end-to-end (e2e) testing, run:
 ```bash
 ng e2e
 ```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
