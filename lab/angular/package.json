@@ -1,6 +1,6 @@
 {
   "name": "angular",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -40,7 +40,6 @@
     "@tailwindcss/forms": "latest",
     "@tailwindcss/line-clamp": "latest",
     "@tailwindcss/typography": "latest",
-    "@types/jasmine": "~5.1.0",
     "autoprefixer": "^10.4.7",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",

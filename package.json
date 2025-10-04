@@ -25,7 +25,8 @@
     "copy-lab": "echo 'not ready yet' && cp ./node_modules/dompurify/dist/purify.es.mjs ./lab/dompurify.js && cp ./node_modules/qrcode/index.js ./vendor/qrcode.js",
     "copy-crypto": "rollup -c && sed -i '1d' ./vendor/nacl.js",
     "copy-nacl" : "cp ./node_modules/tweetnacl-es6/nacl-fast-es.js ./vendor/nacl.js",
-    "copy-all": "npm run copy-vendor && npm run copy-lab && npm run copy-crypto && npm run copy-nacl"
+    "copy-all": "npm run copy-vendor && npm run copy-lab && npm run copy-crypto && npm run copy-nacl",
+    "build-angular": "pnpm --dir ./lab/angular run ng build"
   },
   "dependencies": {
     "chokidar": "^4.0.3",

@@ -11,7 +11,7 @@ importers:
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
-      tweetnacl:
+      tweetnacl-es6:
         specifier: ^1.0.3
         version: 1.0.3
       ws:
@@ -348,8 +348,8 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  tweetnacl@1.0.3:
-    resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
+  tweetnacl-es6@1.0.3:
+    resolution: {integrity: sha512-J90qLTyyCKVgKz9BdU96ecHTA+KOmHOqvwci3Zuhp80ebaq8v19yWP2+ufjVMIJvv02+f07Lw6/TRhH+ZXxatA==}
 
   which-module@2.0.1:
     resolution: {integrity: sha512-iBdZ57RDvnOR9AGBhML2vFZf7h8vmBjhoaZqODJBFWHVtKkDmKuHai3cx5PgVMrX5YDNp27AofYbAwctSS+vhQ==}
@@ -640,7 +640,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  tweetnacl@1.0.3: {}
+  tweetnacl-es6@1.0.3: {}
 
   which-module@2.0.1: {}
 
