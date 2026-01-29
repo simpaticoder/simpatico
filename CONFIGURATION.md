@@ -13,7 +13,7 @@ The server supports multiple configuration methods with the following priority (
 
 ## File-Based Configuration
 
-### Basic Usage
+### Basic Usage (Single Hostname)
 
 Create a `server.config.json` file in your project root:
 
@@ -21,12 +21,16 @@ Create a `server.config.json` file in your project root:
 {
   "http": 8080,
   "https": 8443,
+  "hostname": "localhost",
   "useTls": false,
   "enableWebsockets": true,
   "useCache": true,
   "useGzip": true,
   "logFileServerRequests": true,
-  "debug": false
+  "superCacheEnabled": false,
+  "debug": false,
+  "httpKeepAlive": 100,
+  "httpHeadersTimeout": 100
 }
 ```
 
@@ -52,11 +56,11 @@ node server.js '{"configFile": "./my-config.json"}'
 
 ## Multi-Hostname Support with Let's Encrypt
 
-The server supports multiple hostnames with individual TLS certificates using SNI (Server Name Indication).
+The server supports multiple hostnames with individual TLS certificates using SNI (Server Name Indication). Each hostname can serve files from a different directory.
 
 ### Configuration Example
 
-Create `server.config.json`:
+See `server.config.example.json` for a complete example. Create `server.config.json`:
 
 ```json
 {
@@ -69,21 +73,26 @@ Create `server.config.json`:
     {
       "hostname": "example.com",
       "cert": "/etc/letsencrypt/live/example.com/fullchain.pem",
-      "key": "/etc/letsencrypt/live/example.com/privkey.pem"
+      "key": "/etc/letsencrypt/live/example.com/privkey.pem",
+      "documentRoot": "/var/www/example.com"
     },
     {
       "hostname": "www.example.com",
       "cert": "/etc/letsencrypt/live/www.example.com/fullchain.pem",
-      "key": "/etc/letsencrypt/live/www.example.com/privkey.pem"
+      "key": "/etc/letsencrypt/live/www.example.com/privkey.pem",
+      "documentRoot": "/var/www/example.com"
     },
     {
       "hostname": "api.example.com",
       "cert": "/etc/letsencrypt/live/api.example.com/fullchain.pem",
-      "key": "/etc/letsencrypt/live/api.example.com/privkey.pem"
+      "key": "/etc/letsencrypt/live/api.example.com/privkey.pem",
+      "documentRoot": "/var/www/api.example.com"
     }
   ]
 }
 ```
+
+**Note:** Each hostname can serve files from a different directory using the `documentRoot` option. If not specified, the current working directory is used.
 
 ### Let's Encrypt Setup
 
@@ -215,16 +224,54 @@ Each hostname entry requires:
     {
       "hostname": "localhost",
       "cert": "./simpatico.localhost.crt.pem",
-      "key": "./simpatico.localhost.key.pem"
+      "key": "./simpatico.localhost.key.pem",
+      "documentRoot": "/home/user/projects/site1"
     },
     {
       "hostname": "dev.localhost",
       "cert": "./dev.localhost.crt.pem",
-      "key": "./dev.localhost.key.pem"
+      "key": "./dev.localhost.key.pem",
+      "documentRoot": "/home/user/projects/site2"
     }
   ]
 }
 ```
+
+## Document Root Configuration
+
+### Single-Hostname Mode
+
+In single-hostname mode, you can specify a custom document root:
+
+```json
+{
+  "http": 8080,
+  "documentRoot": "/var/www/mysite"
+}
+```
+
+If not specified, the current working directory (`process.cwd()`) is used.
+
+### Multi-Hostname Mode
+
+Each hostname can serve files from a different directory:
+
+```json
+{
+  "hostnames": [
+    {
+      "hostname": "blog.example.com",
+      "documentRoot": "/var/www/blog"
+    },
+    {
+      "hostname": "shop.example.com",
+      "documentRoot": "/var/www/shop"
+    }
+  ]
+}
+```
+
+This allows you to host multiple completely separate websites on the same server, each with their own files and TLS certificates.
 
 ## Environment Variables
 
@@ -313,38 +360,77 @@ Enable debug logging to see detailed information:
 }
 ```
 
-## Migration from Command-Line Configuration
+## Configuration Options Reference
 
-**Before** (command-line):
-```bash
-node server.js '{"hostname": "example.com", "useTls": true, "cert": "./cert.pem", "key": "./key.pem"}'
-```
+### Core Server Options
 
-**After** (config file):
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `http` | number | `8080` | HTTP port number |
+| `https` | number | `8443` | HTTPS port number |
+| `hostname` | string | `'localhost'` | Default hostname (used in single-hostname mode) |
+| `useTls` | boolean | `false` | Enable HTTPS/TLS |
+| `cert` | string | `'./fullchain.pem'` | Path to TLS certificate (single-hostname mode) |
+| `key` | string | `'./privkey.pem'` | Path to TLS private key (single-hostname mode) |
+| `documentRoot` | string | `process.cwd()` | Document root directory for serving files (single-hostname mode) |
+| `runAsUser` | string | `''` | Drop privileges to this user after binding to ports |
 
-Create `server.config.json`:
+### Multi-Hostname Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `hostnames` | array | `null` | Array of hostname configurations (see below) |
+
+Each hostname object in the `hostnames` array:
 ```json
 {
   "hostname": "example.com",
-  "useTls": true,
-  "cert": "./cert.pem",
-  "key": "./key.pem"
+  "cert": "/path/to/fullchain.pem",
+  "key": "/path/to/privkey.pem",
+  "documentRoot": "/var/www/example.com"
 }
 ```
 
-Then run:
-```bash
-node server.js
+**Note:** The `documentRoot` field is optional. If not specified, the current working directory is used.
+
+### Feature Flags
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enableWebsockets` | boolean | `true` | Enable WebSocket server |
+| `useCache` | boolean | `true` | Enable in-memory file caching |
+| `useGzip` | boolean | `true` | Enable gzip compression |
+| `superCacheEnabled` | boolean | `false` | Enable super cache mode |
+| `logFileServerRequests` | boolean | `true` | Log all file server requests |
+| `debug` | boolean | `false` | Enable debug logging |
+
+### HTTP Server Tuning
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `httpKeepAlive` | number | `100` | HTTP keep-alive timeout in milliseconds |
+| `httpHeadersTimeout` | number | `100` | HTTP headers timeout in milliseconds |
+
+### Other Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `configFile` | string | `'./server.config.json'` | Path to configuration file |
+
+## Security Features
+
+### WebSocket Server Seed
+The WebSocket server uses a cryptographically secure random seed generated on each startup using Node.js's `crypto.randomBytes()`. This ensures each server instance has a unique, unpredictable seed for secure WebSocket connections.
+
+### ACME Challenge Validation
+The server validates ACME token format to prevent directory traversal attacks when serving Let's Encrypt challenges.
+
+### Privilege Dropping
+Use the `runAsUser` option to drop privileges after binding to privileged ports (80, 443):
+```json
+{
+  "http": 80,
+  "https": 443,
+  "runAsUser": "www-data"
+}
 ```
-
-## No New Dependencies
-
-All features use only Node.js built-in modules:
-- `node:fs` - File system operations
-- `node:http` / `node:https` - HTTP/HTTPS servers
-- `node:tls` - TLS/SSL support for SNI
-- `node:crypto` - Hashing and security
-
-Existing dependencies (already in package.json):
-- `chokidar` - File watching for certificate reload
-- `ws` - WebSocket support

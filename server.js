@@ -5,7 +5,7 @@ import https from 'node:https';
 import tls from 'node:tls';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import {createHash} from 'node:crypto';
+import {createHash, randomBytes} from 'node:crypto';
 import * as os from "node:os";
 
 
@@ -23,6 +23,24 @@ import SecureWebSocketServer from "./lab/websocket/SecureWebSocketServer.js";
 // ================================================================
 
 class Reflector {
+    // MIME types mapping for file server
+    static MIME_TYPES = {
+        "html": "text/html",
+        "js": "application/javascript",
+        "mjs": "application/javascript",
+        "json": "application/json",
+        "css": "text/css",
+        "svg": "image/svg+xml",
+        "wasm": "application/wasm",
+        "pdf": "application/pdf",
+        "md": "text/html",
+        "png": "image/x-png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "woff2": "font/woff2",
+        "xml": "application/xml",
+    };
+
     constructor() {
         this.DEBUG = false;
         this.cache = {};
@@ -51,6 +69,11 @@ class Reflector {
     // Configuration Processing
     // ================================================================
 
+    /**
+     * Process configuration from multiple sources with priority: CLI args > env vars > config file > defaults
+     * @param {string} envPrefix - Environment variable prefix (default: 'SIMP_')
+     * @returns {{http: number, https: number, hostname: string, useTls: boolean, cert: string, key: string, hostnames: Array<{hostname: string, cert: string, key: string}>, useCache: boolean, useGzip: boolean, debug: boolean, logFileServerRequests: boolean, baseUrl: string, configFile: string, runAsUser: string}} Configuration object
+     */
     processConfig(envPrefix = 'SIMP_') {
         // Default configuration
         const baseConfig = {
@@ -68,9 +91,14 @@ class Reflector {
             superCacheEnabled: false,
             debug: false,
             configFile: './server.config.json',
+            // Document root for single-hostname mode
+            documentRoot: process.cwd(),
             // Multi-hostname configuration
-            // Format: [{ hostname: 'example.com', cert: './example.crt', key: './example.key' }, ...]
+            // Format: [{ hostname: 'example.com', cert: './example.crt', key: './example.key', documentRoot: '/path/to/files' }, ...]
             hostnames: null,
+            // HTTP server configuration
+            httpKeepAlive: 100,
+            httpHeadersTimeout: 100,
         };
 
         // Load file-based configuration if it exists
@@ -83,6 +111,7 @@ class Reflector {
                 info(`Loaded configuration from ${configFilePath}`);
             } catch (err) {
                 error(`Failed to load configuration file ${configFilePath}:`, err.message);
+                // Continue with empty fileConfig on error
             }
         }
 
@@ -90,8 +119,16 @@ class Reflector {
         const envConfig = mapObject(baseConfig, ([key, _]) => ([key, process.env[`${envPrefix}${key.toUpperCase()}`]]));
 
         // Command line arguments override environment variables
+        let argConfig = {};
         const hasArgument = process.argv.length >= 3;
-        const argConfig = hasArgument ? JSON.parse(process.argv[2]) : {};
+        if (hasArgument) {
+            try {
+                argConfig = JSON.parse(process.argv[2]);
+            } catch (err) {
+                error(`Failed to parse command-line JSON argument:`, err.message);
+                // Continue with empty argConfig on error
+            }
+        }
 
         // Add package information
         const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
@@ -152,6 +189,27 @@ class Reflector {
     // Server Binding
     // ================================================================
 
+    /**
+     * Load TLS certificates from disk
+     * @param {string} certPath - Path to certificate file
+     * @param {string} keyPath - Path to private key file
+     * @returns {{cert: Buffer, key: Buffer}} Certificate and key buffers
+     */
+    loadCertificates(certPath, keyPath) {
+        try {
+            const cert = fs.readFileSync(certPath);
+            const key = fs.readFileSync(keyPath);
+            return { cert, key };
+        } catch (err) {
+            error(`Failed to load certificates from ${certPath} and ${keyPath}:`, err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Bind HTTP and HTTPS servers to configured ports
+     * @returns {{http: number, https: number, ws: number}} Object containing bound port numbers
+     */
     bindToPorts() {
         let httpServer;
         let httpsServer;
@@ -164,8 +222,8 @@ class Reflector {
             this.fileServerLogic();
 
         const httpOptions = {
-            keepAlive: 100,
-            headersTimeout: 100
+            keepAlive: this.config.httpKeepAlive,
+            headersTimeout: this.config.httpHeadersTimeout
         };
 
         httpServer = http.createServer(httpOptions, httpLogic).listen(this.config.http, "0.0.0.0");
@@ -181,9 +239,7 @@ class Reflector {
                 const certFiles = [];
 
                 for (const hostConfig of this.config.hostnames) {
-                    const cert = fs.readFileSync(hostConfig.cert);
-                    const key = fs.readFileSync(hostConfig.key);
-                    certContexts[hostConfig.hostname] = { key, cert };
+                    certContexts[hostConfig.hostname] = this.loadCertificates(hostConfig.cert, hostConfig.key);
                     certFiles.push(hostConfig.cert, hostConfig.key);
                     info(`Loaded TLS certificate for ${hostConfig.hostname}`);
                 }
@@ -219,9 +275,7 @@ class Reflector {
                     // Reload all certificates
                     for (const hostConfig of this.config.hostnames) {
                         try {
-                            const cert = fs.readFileSync(hostConfig.cert);
-                            const key = fs.readFileSync(hostConfig.key);
-                            certContexts[hostConfig.hostname] = { key, cert };
+                            certContexts[hostConfig.hostname] = this.loadCertificates(hostConfig.cert, hostConfig.key);
                             log(`Reloaded certificate for ${hostConfig.hostname}`);
                         } catch (err) {
                             error(`Failed to reload certificate for ${hostConfig.hostname}:`, err.message);
@@ -233,8 +287,7 @@ class Reflector {
 
             } else {
                 // Single hostname setup (legacy mode)
-                const cert = fs.readFileSync(this.config.cert);
-                const key = fs.readFileSync(this.config.key);
+                const { cert, key } = this.loadCertificates(this.config.cert, this.config.key);
 
                 httpsServer = https.createServer({ key, cert }, this.fileServerLogic()).listen(this.config.https, "0.0.0.0");
                 result.https = this.config.https;
@@ -243,12 +296,9 @@ class Reflector {
                 chokidar.watch([this.config.cert, this.config.key], {
                     persistent: true,
                     ignoreInitial: true
-                }).on('change', path => {
-                    log(`Certificate file changed: ${path}`);
-                    const newContext = {
-                        key: fs.readFileSync(this.config.key),
-                        cert: fs.readFileSync(this.config.cert)
-                    };
+                }).on('change', certPath => {
+                    log(`Certificate file changed: ${certPath}`);
+                    const newContext = this.loadCertificates(this.config.cert, this.config.key);
                     httpsServer.setSecureContext(newContext);
                     log('Certificates reloaded successfully');
                 });
@@ -257,7 +307,9 @@ class Reflector {
 
         // Create WebSocket server if enabled
         if (this.config.enableWebsockets) {
-            const serverKeys = SecureWebSocketServer.generateKeys('server-seed-456');
+            // Generate cryptographically secure random seed for WebSocket server
+            const wsServerSeed = randomBytes(32).toString('hex');
+            const serverKeys = SecureWebSocketServer.generateKeys(wsServerSeed);
             new WebSocketServer({
                 server: this.config.useTls ? httpsServer : httpServer,
                 perMessageDeflate: true
@@ -279,6 +331,11 @@ class Reflector {
     // HTTP Redirect Server Logic
     // ================================================================
 
+    /**
+     * Handle HTTP requests - serve ACME challenges or redirect to HTTPS
+     * @param {import('http').IncomingMessage} req - HTTP request object
+     * @param {import('http').ServerResponse} res - HTTP response object
+     */
     httpRedirectServerLogic(req, res) {
         if (this.DEBUG) debug(`http request: ${req.url}`);
 
@@ -290,7 +347,7 @@ class Reflector {
                 const token = req.url.split('/')[3];
 
                 if (!validAcmeTokenRegex.test(token)) {
-                    throw 'bad acme challenge token ' + token;
+                    throw new Error(`Invalid ACME challenge token: ${token}`);
                 } else {
                     const fileName = process.cwd() + req.url;
                     const localSecret = fs.readFileSync(fileName);
@@ -321,25 +378,11 @@ class Reflector {
     // File Server Logic
     // ================================================================
 
+    /**
+     * Create request handler for file serving with caching, compression, and literate markdown support
+     * @returns {(req: import('http').IncomingMessage, res: import('http').ServerResponse) => void} Request handler function
+     */
     fileServerLogic() {
-        // MIME types mapping
-        const mime = {
-            "html": "text/html",
-            "js": "application/javascript",
-            "mjs": "application/javascript",
-            "json": "application/json",
-            "css": "text/css",
-            "svg": "image/svg+xml",
-            "wasm": "application/wasm",
-            "pdf": "application/pdf",
-            "md": "text/html",
-            "png": "image/x-png",
-            "jpg": "image/jpeg",
-            "jpeg": "image/jpeg",
-            "woff2": "font/woff2",
-            "xml": "application/xml",
-        };
-
         // Headers for cross-origin isolation (needed for SharedArrayBuffer and WASM)
         const getCrossOriginHeaders = () => ({
             'Cross-Origin-Opener-Policy': 'same-origin',
@@ -359,7 +402,7 @@ class Reflector {
         // Content type headers based on file extension
         const getContentTypeHeader = (filename, defaultMimeType = 'text') => {
             const ext = path.extname(filename).slice(1);
-            const type = mime[ext] ? mime[ext] : defaultMimeType;
+            const type = Reflector.MIME_TYPES[ext] || defaultMimeType;
             const useGzip = this.config.useGzip && !this.isCompressedImage(filename);
             return {
                 "Content-Type": type,
@@ -402,13 +445,13 @@ class Reflector {
             // Extract filename from URL
             let fileName;
             try {
-                fileName = this.urlToFileName(req.url);
+                fileName = this.urlToFileName(req.url, req);
             } catch (err) {
-                const code = err.substring(0, 3);
-                respondWithError(Object.assign(err, {
+                const code = err.code || 500;
+                respondWithError({
                     code,
                     message: 'There was a problem \n' + this.failWhale,
-                }));
+                });
                 return;
             }
             // if (this.config.debug) log({fileName});
@@ -434,7 +477,7 @@ class Reflector {
 
             // Log request details
             const logRequest = req => {
-                console.log(
+                log(
                     new Date().toISOString(),
                     req.socket.remoteAddress.replace(/^.*:/, ''),
                     req.headers["user-agent"].substring(0, 20),
@@ -444,7 +487,7 @@ class Reflector {
             };
 
             // Validate request has user-agent header
-            if (!req.headers.hasOwnProperty("user-agent")) {
+            if (!("user-agent" in req.headers)) {
                 respondWithError(combine(new Error(), {
                     code: 500,
                     log: 'missing user-agent header',
@@ -466,7 +509,7 @@ class Reflector {
             } else {
                 // Cache miss, read from disk
                 if (this.config.useCache) {
-                    console.log('\tcache miss for', req.url);
+                    log('\tcache miss for', req.url);
                 }
 
                 try {
@@ -496,9 +539,27 @@ class Reflector {
     // File Handling Utilities
     // ================================================================
 
-    urlToFileName(path) {
-        // Handle special URLs for package resources
-        const __dirname = process.cwd();
+    /**
+     * Convert URL path to filesystem path, handling special routes and query parameters
+     * @param {string} path - URL path
+     * @param {import('http').IncomingMessage} req - HTTP request object (optional, used for hostname-based routing)
+     * @returns {string} Absolute filesystem path
+     * @throws {Error} 404 error if no matching file found, 500 error if path is invalid
+     */
+    urlToFileName(path, req = null) {
+        // Determine document root based on hostname
+        let documentRoot = this.config.documentRoot;
+
+        // If multi-hostname mode is enabled, find the document root for this hostname
+        if (req && this.config.hostnames && this.config.hostnames.length > 0) {
+            const requestHost = req.headers.host || this.config.hostname;
+            const hostname = requestHost.split(':')[0]; // Remove port if present
+
+            const hostConfig = this.config.hostnames.find(h => h.hostname === hostname);
+            if (hostConfig && hostConfig.documentRoot) {
+                documentRoot = hostConfig.documentRoot;
+            }
+        }
 
         // Strip query parameters
         if (path.indexOf('?') > -1) {
@@ -507,11 +568,11 @@ class Reflector {
 
         // Find matching file
         const candidateFiles = this.getCandidateFiles(path);
-        if (this.config.debug) console.log({candidateFiles, dirname: __dirname});
+        if (this.config.debug) debug({candidateFiles, documentRoot});
         let found;
 
         for (let i = 0; i < candidateFiles.length; i++) {
-            let candidatePath = __dirname + candidateFiles[i];
+            let candidatePath = documentRoot + candidateFiles[i];
             if (fs.existsSync(candidatePath)) {
                 found = candidatePath;
                 break;
@@ -521,17 +582,28 @@ class Reflector {
         if (found) {
             return found;
         } else {
-            throw '404 no candidate found for path ' + path + ' in candidates: ' + candidateFiles;
+            const err = new Error(`No candidate found for path: ${path}`);
+            err.code = 404;
+            err.candidates = candidateFiles;
+            throw err;
         }
     }
 
+    /**
+     * Get list of candidate file paths for a given URL path
+     * @param {string} path - URL path
+     * @returns {string[]} Array of candidate file paths to try
+     * @throws {Error} 500 error if path contains dot-prefixed segments
+     */
     getCandidateFiles(path) {
         const parts = path.split('/');
         const last = peek(parts);
         const isFile= /\./.test(last);
 
         if (parts.some(part => part.startsWith('.'))) {
-            throw '500 invalid path: ' + path;
+            const err = new Error(`Invalid path (contains dot-prefixed segment): ${path}`);
+            err.code = 500;
+            throw err;
         }
 
         // Handle Angular paths
@@ -626,30 +698,51 @@ class Reflector {
     }
 
     initFileWatchingCacheInvalidator(watchRecursive = '.') {
-        chokidar.watch(watchRecursive, {
+        // Determine which directories to watch
+        const watchPaths = [];
+
+        if (this.config.hostnames && this.config.hostnames.length > 0) {
+            // Multi-hostname mode: watch all document roots
+            for (const hostConfig of this.config.hostnames) {
+                if (hostConfig.documentRoot) {
+                    watchPaths.push(hostConfig.documentRoot);
+                }
+            }
+            // If no document roots specified, fall back to current directory
+            if (watchPaths.length === 0) {
+                watchPaths.push(watchRecursive);
+            }
+        } else {
+            // Single-hostname mode: watch the configured document root or current directory
+            watchPaths.push(this.config.documentRoot || watchRecursive);
+        }
+
+        chokidar.watch(watchPaths, {
             ignored: /(^|[\/\\])\..|node_modules/,
             persistent: true,
         })
             .on('change', fileName => {
-                const path = process.cwd() + '/' + fileName;
-                delete this.cache[path];
+                // fileName might be absolute or relative depending on watch path
+                // Try to construct the full path for cache invalidation
+                const filePath = path.isAbsolute(fileName) ? fileName : process.cwd() + '/' + fileName;
+                delete this.cache[filePath];
 
                 // Handle JS file changes
                 if (fileName.endsWith('.js')) {
                     const mdFileName = fileName.replace('.js', '.md');
-                    log(`cache invalidated modified ${this.config.baseUrl}/${mdFileName} based on ${fileName}`);
+                    log(`cache invalidated modified ${this.config.baseUrl}/${path.basename(mdFileName)} based on ${path.basename(fileName)}`);
                 } else {
-                    log(`cache invalidated modified ${this.config.baseUrl}/${fileName}`);
+                    log(`cache invalidated modified ${this.config.baseUrl}/${path.basename(fileName)}`);
                 }
             })
             .on('unlink', fileName => {
-                const path = process.cwd() + '/' + fileName;
-                delete this.cache[path];
+                const filePath = path.isAbsolute(fileName) ? fileName : process.cwd() + '/' + fileName;
+                delete this.cache[filePath];
                 // Handle Angular dist directory changes
                 if (fileName.includes('/dist/angular/browser')) {
                     log(`cache invalidated replaced ${this.config.baseUrl}/angular `);
                 } else {
-                    log(`cache invalidated deleted ${path}`);
+                    log(`cache invalidated deleted ${filePath}`);
                 }
 
             });

@@ -1,6 +1,7 @@
 {
-  "http": 8080,
-  "https": 8443,
+  "http": 80,
+  "https": 443,
+  "hostname": "example.com",
   "useTls": true,
   "enableWebsockets": true,
   "useCache": true,
@@ -8,7 +9,7 @@
   "logFileServerRequests": true,
   "superCacheEnabled": false,
   "debug": false,
-  "runAsUser": "",
+  "runAsUser": "www-data",
   "hostnames": [
     {
       "hostname": "example.com",
@@ -23,7 +24,8 @@
     {
       "hostname": "api.example.com",
       "cert": "/etc/letsencrypt/live/api.example.com/fullchain.pem",
-      "key": "/etc/letsencrypt/live/api.example.com/privkey.pem"
+      "key": "/etc/letsencrypt/live/api.example.com/privkey.pem",
+      "documentRoot": "/var/www/api.example.com"
     }
   ]
 }
