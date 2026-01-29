@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual CPU Instruction Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "@angular/core": "https://esm.sh/@angular/core@17",
+                "@angular/common": "https://esm.sh/@angular/common@17",
+                "@angular/platform-browser": "https://esm.sh/@angular/platform-browser@17",
+                "@angular/platform-browser-dynamic": "https://esm.sh/@angular/platform-browser-dynamic@17",
+                "rxjs": "https://esm.sh/rxjs@7",
+                "rxjs/operators": "https://esm.sh/rxjs@7/operators"
+            }
+        }
+    </script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'pulse-slow': 'pulse 2s ease-in-out infinite',
+                        'bounce-slow': 'bounce 2s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+<div id="app">Loading...</div>
+
+<script type="module">
+    import { Component, signal, computed, inject } from '@angular/core';
+    import { CommonModule } from '@angular/common';
+    import { bootstrapApplication } from '@angular/platform-browser';
+
+    // CPU State Interface
+    class CPUState {
+        acc = 0;
+        regA = 0;
+        regB = 0;
+        flags = 0;
+        programCounter = 0;
+        stack = [];
+
+        updateFlags() {
+            this.flags = 0;
+            if (this.acc === 0) this.flags |= 1; // Zero flag
+            if (this.acc < 0) this.flags |= 2;   // Negative flag
+            if (this.acc > 255) this.flags |= 4; // Overflow flag
+        }
+
+        reset() {
+            this.acc = 0;
+            this.regA = 0;
+            this.regB = 0;
+            this.flags = 0;
+            this.programCounter = 0;
+            this.stack = [];
+        }
+
+        getFlagsString() {
+            return this.flags.toString(2).padStart(4, '0');
+        }
+    }
+
+    // CPU Instructions
+    const CPU_INSTRUCTIONS = {
+        NOP: {
+            name: 'NOP',
+            description: 'No Operation',
+            pictogram: [
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0]
+            ],
+            execute: (cpu) => { /* do nothing */ }
+        },
+        LOAD: {
+            name: 'LOAD',
+            description: 'Load PC into ACC',
+            pictogram: [
+                [1,1,1,1,1,1,1,0],
+                [1,0,0,0,0,0,1,0],
+                [1,0,1,1,1,0,1,0],
+                [1,0,1,0,1,0,1,0],
+                [1,0,1,1,1,0,1,0],
+                [1,0,0,0,0,0,1,0],
+                [1,1,1,1,1,1,1,0],
+                [0,0,0,0,0,0,0,0]
+            ],
+            execute: (cpu) => { cpu.acc = cpu.programCounter; }
+        },
+        ADD: {
+            name: 'ADD',
+            description: 'Add REG A to ACC',
+            pictogram: [
+                [0,0,0,1,1,0,0,0],
+                [0,0,0,1,1,0,0,0],
+                [0,0,0,1,1,0,0,0],
+                [1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1],
+                [0,0,0,1,1,0,0,0],
+                [0,0,0,1,1,0,0,0],
+                [0,0,0,1,1,0,0,0]
+            ],
+            execute: (cpu) => {
+                cpu.acc = cpu.acc + cpu.regA;
+                cpu.updateFlags();
+            }
+        },
+        SUB: {
+            name: 'SUB',
+            description: 'Subtract REG A',
+            pictogram: [
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0]
+            ],
+            execute: (cpu) => {
+                cpu.acc = cpu.acc - cpu.regA;
+                cpu.updateFlags();
+            }
+        },
+        MUL: {
+            name: 'MUL',
+            description: 'Multiply ACC by A',
+            pictogram: [
+                [1,0,0,0,0,0,0,1],
+                [0,1,0,0,0,0,1,0],
+                [0,0,1,0,0,1,0,0],
+                [0,0,0,1,1,0,0,0],
+                [0,0,0,1,1,0,0,0],
+                [0,0,1,0,0,1,0,0],
+                [0,1,0,0,0,0,1,0],
+                [1,0,0,0,0,0,0,1]
+            ],
+            execute: (cpu) => {
+                cpu.acc = cpu.acc * cpu.regA;
+                cpu.updateFlags();
+            }
+        },
+        STA: {
+            name: 'STA',
+            description: 'Store ACC in A',
+            pictogram: [
+                [0,1,1,1,1,1,1,0],
+                [1,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,0,0],
+                [1,0,1,0,0,0,0,0],
+                [1,0,1,1,1,1,0,0],
+                [1,0,0,0,0,0,1,0],
+                [0,1,1,1,1,1,0,0],
+                [0,0,0,0,0,0,0,0]
+            ],
+            execute: (cpu) => { cpu.regA = cpu.acc; }
+        },
+        STB: {
+            name: 'STB',
+            description: 'Store ACC in B',
+            pictogram: [
+                [1,1,1,1,1,1,0,0],
+                [1,0,0,0,0,0,1,0],
+                [1,0,0,0,0,0,1,0],
+                [1,1,1,1,1,1,0,0],
+                [1,0,0,0,0,0,1,0],
+                [1,0,0,0,0,0,1,0],
+                [1,1,1,1,1,1,0,0],
+                [0,0,0,0,0,0,0,0]
+            ],
+            execute: (cpu) => { cpu.regB = cpu.acc; }
+        },
+        PUSH: {
+            name: 'PUSH',
+            description: 'Push ACC to stack',
+            pictogram: [
+                [0,0,0,1,1,0,0,0],
+                [0,0,1,1,1,1,0,0],
+                [0,1,1,1,1,1,1,0],
+                [1,1,1,1,1,1,1,1],
+                [0,0,1,1,1,1,0,0],
+                [0,0,1,1,1,1,0,0],
+                [0,0,1,1,1,1,0,0],
+                [0,0,1,1,1,1,0,0]
+            ],
+            execute: (cpu) => { cpu.stack.push(cpu.acc); }
+        },
+        POP: {
+            name: 'POP',
+            description: 'Pop stack to ACC',
+            pictogram: [
+                [0,0,1,1,1,1,0,0],
+                [0,0,1,1,1,1,0,0],
+                [0,0,1,1,1,1,0,0],
+                [0,0,1,1,1,1,0,0],
+                [1,1,1,1,1,1,1,1],
+                [0,1,1,1,1,1,1,0],
+                [0,0,1,1,1,1,0,0],
+                [0,0,0,1,1,0,0,0]
+            ],
+            execute: (cpu) => {
+                if (cpu.stack.length > 0) {
+                    cpu.acc = cpu.stack.pop();
+                }
+            }
+        }
+    };
+
+    @Component({
+        selector: 'app-root',
+        standalone: true,
+        imports: [CommonModule],
+        template: `
+                <!-- Header -->
+                <header class="bg-black/20 backdrop-blur-xl border-b border-white/10 p-6">
+                    <h1 class="text-3xl font-light text-white text-center mb-4">Visual CPU Instruction Simulator</h1>
+                    <div class="flex flex-wrap justify-center gap-4 items-center">
+                        <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg border border-white/20">
+                            <label class="text-white text-sm font-medium">Grid Size:</label>
+                            <select (change)="onGridSizeChange($event)" [value]="gridSize()"
+                                    class="bg-transparent text-white border-none outline-none">
+                                <option value="32">32x32</option>
+                                <option value="64">64x64</option>
+                                <option value="128">128x128</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg border border-white/20">
+                            <button (click)="zoom('out')"
+                                    class="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white font-bold transition-all transform hover:scale-105">−</button>
+                            <span class="text-white text-sm min-w-16 text-center">{{(zoomLevel() * 100) | number:'1.0-0'}}%</span>
+                            <button (click)="zoom('in')"
+                                    class="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white font-bold transition-all transform hover:scale-105">+</button>
+                        </div>
+
+                        <button (click)="clearGrid()"
+                                class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium transition-all transform hover:scale-105 hover:shadow-lg">
+                            Clear Grid
+                        </button>
+
+                        <button (click)="executeProgram()" [disabled]="isExecuting()"
+                                class="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-full font-medium transition-all transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                            @if (!isExecuting()) {
+                                <span>🚀 Execute Program</span>
+                            } @else {
+                                <span>⏸ Executing...</span>
+                            }
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Main Content -->
+                <div class="flex gap-6 p-6 min-h-screen">
+                    <!-- Left Panel - Instructions & CPU State -->
+                    <div class="w-80 space-y-6">
+                        <!-- Instruction Palette -->
+                        <div class="bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                            <h3 class="text-xl font-semibold text-gray-800 text-center mb-6">CPU Instructions</h3>
+                            <div class="grid grid-cols-3 gap-4">
+                                @for (instructionEntry of instructionEntries(); track instructionEntry.key) {
+                                    <div (click)="selectInstruction(instructionEntry.key)"
+                                         class="bg-gray-50 border-2 rounded-xl p-3 cursor-pointer transition-all transform hover:scale-105 text-center"
+                                         [class.border-red-500]="selectedInstruction() === instructionEntry.key"
+                                         [class.bg-red-50]="selectedInstruction() === instructionEntry.key"
+                                         [class.scale-105]="selectedInstruction() === instructionEntry.key"
+                                         [class.border-gray-300]="selectedInstruction() !== instructionEntry.key"
+                                         [class.hover:border-blue-400]="selectedInstruction() !== instructionEntry.key"
+                                         [class.hover:bg-blue-50]="selectedInstruction() !== instructionEntry.key">
+
+                                        <!-- Pictogram -->
+                                        <div class="w-16 h-16 mx-auto mb-2 grid grid-cols-8 gap-px bg-gray-300 rounded p-1">
+                                            @for (bit of instructionEntry.instruction.pictogram.flat(); track $index) {
+                                                <div class="rounded-sm transition-colors"
+                                                     [class.bg-gray-800]="bit === 1"
+                                                     [class.bg-white]="bit === 0"></div>
+                                            }
+                                        </div>
+
+                                        <div class="text-xs font-bold text-gray-800">{{instructionEntry.instruction.name}}</div>
+                                        <div class="text-xs text-gray-600 mt-1">{{instructionEntry.instruction.description}}</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- CPU State -->
+                        <div class="bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                            <h3 class="text-xl font-semibold text-gray-800 text-center mb-6">CPU State</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                    <span class="font-semibold text-gray-700">ACC</span>
+                                    <span class="font-mono text-red-600 font-bold">{{cpu.acc}}</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                    <span class="font-semibold text-gray-700">REG A</span>
+                                    <span class="font-mono text-red-600 font-bold">{{cpu.regA}}</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                    <span class="font-semibold text-gray-700">REG B</span>
+                                    <span class="font-mono text-red-600 font-bold">{{cpu.regB}}</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                    <span class="font-semibold text-gray-700">FLAGS</span>
+                                    <span class="font-mono text-red-600 font-bold">{{cpu.getFlagsString()}}</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                    <span class="font-semibold text-gray-700">PC</span>
+                                    <span class="font-mono text-red-600 font-bold">{{cpu.programCounter}}</span>
+                                </div>
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                                    <span class="font-semibold text-gray-700">STACK</span>
+                                    <span class="font-mono text-red-600 font-bold text-xs">[{{cpu.stack.join(', ')}}]</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center Panel - Grid -->
+                    <div class="flex-1 bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                        <div class="h-96 overflow-auto border-2 border-gray-200 rounded-xl bg-gray-50 relative">
+                            <div class="p-4">
+                                <div class="inline-grid gap-px bg-gray-400"
+                                     [style.grid-template-columns]="'repeat(' + gridSize() + ', ' + bitSize() + 'px)'">
+                                    @for (bit of bits(); track $index) {
+                                        <div (click)="placeBit($index)"
+                                             class="border border-gray-400 cursor-pointer transition-all transform hover:scale-110 hover:z-10 hover:shadow-lg rounded-sm"
+                                             [class.bg-gray-800]="bit === 1"
+                                             [class.bg-white]="bit === 0"
+                                             [style.width.px]="bitSize()"
+                                             [style.height.px]="bitSize()"></div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Chunk Highlights -->
+                            @for (highlight of chunkHighlights(); track highlight.id) {
+                                <div class="absolute border-4 rounded pointer-events-none animate-pulse-slow"
+                                     [class.border-red-500]="highlight.type === 'map'"
+                                     [class.bg-red-500/10]="highlight.type === 'map'"
+                                     [class.border-green-500]="highlight.type === 'execute'"
+                                     [class.bg-green-500/20]="highlight.type === 'execute'"
+                                     [style.left.px]="highlight.left"
+                                     [style.top.px]="highlight.top"
+                                     [style.width.px]="highlight.width"
+                                     [style.height.px]="highlight.height"></div>
+                            }
+                        </div>
+
+                        <!-- Stats -->
+                        <div class="flex gap-6 mt-4 text-sm text-gray-600">
+                            <span>Instructions: <strong class="text-gray-800">{{getInstructionCount()}}</strong></span>
+                            <span>Program Size: <strong class="text-gray-800">{{getProgramSize()}}</strong> chunks</span>
+                            <span>Active Bits: <strong class="text-gray-800">{{getActiveBits()}}</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel - Execution Log -->
+                    <div class="w-96 bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                        <h3 class="text-xl font-semibold text-gray-800 text-center mb-6">Execution Log</h3>
+                        <div class="bg-gray-900 text-green-400 p-4 rounded-xl font-mono text-xs h-96 overflow-y-auto whitespace-pre-wrap">{{executionLog()}}</div>
+                    </div>
+                </div>
+
+                <!-- Mode Indicator -->
+                @if (showModeIndicator()) {
+                    <div class="fixed top-1/2 left-6 transform -translate-y-1/2 bg-red-500/90 text-white px-4 py-3 rounded-lg font-semibold shadow-xl animate-bounce-slow">
+                        Drawing: {{getCurrentInstructionName()}}
+                    </div>
+                }
+            `
+    })
+    class AppComponent {
+        // Signals for reactive state
+        gridSize = signal(64);
+        zoomLevel = signal(1);
+        bits = signal([]);
+        selectedInstruction = signal('NOP');
+        isExecuting = signal(false);
+        executionLog = signal('Ready to execute program...\nDraw instructions in the grid and click Execute!');
+        chunkHighlights = signal([]);
+        showModeIndicator = signal(false);
+
+        // CPU instance
+        cpu = new CPUState();
+
+        // Computed values
+        bitSize = computed(() => Math.max(4, 20 * this.zoomLevel()));
+        instructionEntries = computed(() =>
+            Object.entries(CPU_INSTRUCTIONS).map(([key, instruction]) => ({
+                key,
+                instruction
+            }))
+        );
+
+        constructor() {
+            this.createGrid();
+        }
+
+        createGrid() {
+            const size = this.gridSize();
+            const totalBits = size * size;
+            this.bits.set(new Array(totalBits).fill(0));
+        }
+
+        onGridSizeChange(event) {
+            this.gridSize.set(parseInt(event.target.value));
+            this.createGrid();
+        }
+
+        zoom(direction) {
+            const currentZoom = this.zoomLevel();
+            const zoomStep = 0.2;
+            const minZoom = 0.2;
+            const maxZoom = 3;
+
+            if (direction === 'in' && currentZoom < maxZoom) {
+                this.zoomLevel.set(Math.round((currentZoom + zoomStep) * 10) / 10);
+            } else if (direction === 'out' && currentZoom > minZoom) {
+                this.zoomLevel.set(Math.round((currentZoom - zoomStep) * 10) / 10);
+            }
+        }
+
+        selectInstruction(instructionKey) {
+            this.selectedInstruction.set(instructionKey);
+            this.showModeIndicator.set(true);
+            setTimeout(() => this.showModeIndicator.set(false), 2000);
+        }
+
+        placeBit(bitIndex) {
+            if (this.isExecuting()) return;
+
+            const size = this.gridSize();
+            const row = Math.floor(bitIndex / size);
+            const col = bitIndex % size;
+
+            // Check if we can place an 8x8 instruction
+            if (row + 7 >= size || col + 7 >= size) return;
+
+            const instruction = CPU_INSTRUCTIONS[this.selectedInstruction()];
+            const newBits = [...this.bits()];
+
+            // Place the 8x8 pictogram
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const targetIndex = (row + r) * size + (col + c);
+                    newBits[targetIndex] = instruction.pictogram[r][c];
+                }
+            }
+
+            this.bits.set(newBits);
+            this.clearExecutionLog();
+        }
+
+        clearGrid() {
+            if (this.isExecuting()) return;
+
+            const totalBits = this.gridSize() * this.gridSize();
+            this.bits.set(new Array(totalBits).fill(0));
+            this.cpu.reset();
+            this.clearExecutionLog();
+            this.chunkHighlights.set([]);
+        }
+
+        clearExecutionLog() {
+            this.executionLog.set('Ready to execute program...\nDraw instructions in the grid and click Execute!');
+        }
+
+        getCurrentInstructionName() {
+            return CPU_INSTRUCTIONS[this.selectedInstruction()].name;
+        }
+
+        getActiveBits() {
+            return this.bits().reduce((sum, bit) => sum + bit, 0);
+        }
+
+        getInstructionCount() {
+            const size = this.gridSize();
+            let count = 0;
+
+            for (let row = 0; row < size; row += 8) {
+                for (let col = 0; col < size; col += 8) {
+                    const chunk = this.getChunk(row, col);
+                    const instructionKey = this.mapChunkToInstruction(chunk);
+                    if (instructionKey !== 'NOP' || this.hasNonZeroBits(chunk)) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        getProgramSize() {
+            const size = this.gridSize();
+            return Math.ceil(size / 8) * Math.ceil(size / 8);
+        }
+
+        getChunk(startRow, startCol) {
+            const size = this.gridSize();
+            const chunk = [];
+
+            for (let r = 0; r < 8; r++) {
+                const row = [];
+                for (let c = 0; c < 8; c++) {
+                    const actualRow = startRow + r;
+                    const actualCol = startCol + c;
+                    if (actualRow < size && actualCol < size) {
+                        const bitIndex = actualRow * size + actualCol;
+                        row.push(this.bits()[bitIndex]);
+                    } else {
+                        row.push(0);
+                    }
+                }
+                chunk.push(row);
+            }
+            return chunk;
+        }
+
+        mapChunkToInstruction(chunk) {
+            for (const [key, instruction] of Object.entries(CPU_INSTRUCTIONS)) {
+                if (this.matchesPictogram(chunk, instruction.pictogram)) {
+                    return key;
+                }
+            }
+            return 'NOP';
+        }
+
+        matchesPictogram(chunk, pictogram) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (chunk[r][c] !== pictogram[r][c]) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        hasNonZeroBits(chunk) {
+            return chunk.some(row => row.some(bit => bit === 1));
+        }
+
+        log(message) {
+            const currentLog = this.executionLog();
+            this.executionLog.set(currentLog + '\n' + message);
+        }
+
+        async executeProgram() {
+            if (this.isExecuting()) return;
+
+            this.isExecuting.set(true);
+            this.cpu.reset();
+            this.executionLog.set('🚀 Starting program execution...\n📊 Map Phase: Converting pictograms to instructions');
+            this.chunkHighlights.set([]);
+
+            try {
+                // Map phase: convert 8x8 chunks to instructions
+                const instructions = [];
+                let chunkIndex = 0;
+                const size = this.gridSize();
+
+                for (let row = 0; row < size; row += 8) {
+                    for (let col = 0; col < size; col += 8) {
+                        const chunk = this.getChunk(row, col);
+                        const instructionKey = this.mapChunkToInstruction(chunk);
+
+                        if (instructionKey !== 'NOP' || this.hasNonZeroBits(chunk)) {
+                            // Highlight current chunk
+                            const highlight = {
+                                id: chunkIndex,
+                                left: 16 + col * (this.bitSize() + 1),
+                                top: 16 + row * (this.bitSize() + 1),
+                                width: 8 * this.bitSize() + 7,
+                                height: 8 * this.bitSize() + 7,
+                                type: 'map'
+                            };
+
+                            this.chunkHighlights.set([highlight]);
+
+                            instructions.push({
+                                instruction: instructionKey,
+                                position: { row, col },
+                                index: chunkIndex
+                            });
+
+                            this.log(`  Chunk ${chunkIndex}: ${instructionKey} at (${row},${col})`);
+
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                            this.chunkHighlights.set([]);
+                        }
+
+                        chunkIndex++;
+                    }
+                }
+
+                if (instructions.length === 0) {
+                    this.log('❌ No instructions found in grid');
+                    return;
+                }
+
+                this.log(`\n🎯 Reduce Phase: Executing ${instructions.length} instructions`);
+                this.log('─'.repeat(50));
+
+                // Reduce phase: execute instructions
+                for (let i = 0; i < instructions.length; i++) {
+                    const { instruction, position, index } = instructions[i];
+                    this.cpu.programCounter = index;
+
+                    // Highlight executing instruction
+                    const highlight = {
+                        id: i,
+                        left: 16 + position.col * (this.bitSize() + 1),
+                        top: 16 + position.row * (this.bitSize() + 1),
+                        width: 8 * this.bitSize() + 7,
+                        height: 8 * this.bitSize() + 7,
+                        type: 'execute'
+                    };
+
+                    this.chunkHighlights.set([highlight]);
+
+                    const beforeState = {
+                        acc: this.cpu.acc,
+                        regA: this.cpu.regA,
+                        regB: this.cpu.regB,
+                        stackSize: this.cpu.stack.length
+                    };
+
+                    // Execute instruction
+                    CPU_INSTRUCTIONS[instruction].execute(this.cpu);
+
+                    // Log execution
+                    const changes = this.getStateChanges(beforeState);
+                    this.log(`${i + 1}. ${instruction}: ${CPU_INSTRUCTIONS[instruction].description}`);
+                    if (changes.length > 0) {
+                        this.log(`   Changes: ${changes.join(', ')}`);
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    this.chunkHighlights.set([]);
+                }
+
+                this.log('\n✅ Program execution completed!');
+                this.log(`📈 Final result: ACC = ${this.cpu.acc}`);
+
+            } catch (error) {
+                this.log(`\n❌ Execution error: ${error.message}`);
+            } finally {
+                this.chunkHighlights.set([]);
+                this.isExecuting.set(false);
+            }
+        }
+
+        getStateChanges(beforeState) {
+            const changes = [];
+            if (this.cpu.acc !== beforeState.acc) {
+                changes.push(`ACC: ${beforeState.acc} → ${this.cpu.acc}`);
+            }
+            if (this.cpu.regA !== beforeState.regA) {
+                changes.push(`REG A: ${beforeState.regA} → ${this.cpu.regA}`);
+            }
+            if (this.cpu.regB !== beforeState.regB) {
+                changes.push(`REG B: ${beforeState.regB} → ${this.cpu.regB}`);
+            }
+            if (this.cpu.stack.length !== beforeState.stackSize) {
+                changes.push(`STACK: ${beforeState.stackSize} → ${this.cpu.stack.length} items`);
+            }
+            return changes;
+        }
+    }
+
+    // Bootstrap the application
+    bootstrapApplication(AppComponent, {
+        providers: []
+    }).catch(err => console.error(err));
