@@ -2,6 +2,7 @@ import process from 'node:process';
 import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
+import tls from 'node:tls';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import {createHash} from 'node:crypto';
@@ -66,7 +67,24 @@ class Reflector {
             logFileServerRequests: true,
             superCacheEnabled: false,
             debug: false,
+            configFile: './server.config.json',
+            // Multi-hostname configuration
+            // Format: [{ hostname: 'example.com', cert: './example.crt', key: './example.key' }, ...]
+            hostnames: null,
         };
+
+        // Load file-based configuration if it exists
+        let fileConfig = {};
+        const configFilePath = process.env[`${envPrefix}CONFIGFILE`] || baseConfig.configFile;
+        if (fs.existsSync(configFilePath)) {
+            try {
+                const fileContent = fs.readFileSync(configFilePath, 'utf8');
+                fileConfig = JSON.parse(fileContent);
+                info(`Loaded configuration from ${configFilePath}`);
+            } catch (err) {
+                error(`Failed to load configuration file ${configFilePath}:`, err.message);
+            }
+        }
 
         // Environment variables override defaults
         const envConfig = mapObject(baseConfig, ([key, _]) => ([key, process.env[`${envPrefix}${key.toUpperCase()}`]]));
@@ -88,18 +106,24 @@ class Reflector {
         };
 
         // Combine all configuration sources with type casting
-        const config = combine([baseConfig, envConfig, argConfig, measured], (a, b) => {
+        // Priority: argConfig > envConfig > fileConfig > baseConfig
+        const config = combine([baseConfig, fileConfig, envConfig, argConfig, measured], (a, b) => {
             if (typeof a === 'number' && typeof b === 'number') return b;
             if (typeof a === 'number' && typeof b === 'string') return +b;
             if (typeof a === 'boolean' && typeof b === 'string') return b === 'true';
         });
+
+        // Build baseUrl - use first hostname if multi-hostname is configured
+        const primaryHostname = config.hostnames && config.hostnames.length > 0
+            ? config.hostnames[0].hostname
+            : config.hostname;
         config.baseUrl = config.useTls ?
-            `https://${config.hostname}${config.https === 443 ? '' : `:${config.https}`}` :
-            `http://${config.hostname}${config.http === 80 ? '' : `:${config.http}`}`;
+            `https://${primaryHostname}${config.https === 443 ? '' : `:${config.https}`}` :
+            `http://${primaryHostname}${config.http === 80 ? '' : `:${config.http}`}`;
 
         // Add litmd configuration
         config.litmd = {
-            hostname: config.hostname,
+            hostname: primaryHostname,
             specialPathPrefix: '/',
             baseUrl: config.baseUrl,
             author: config.measured.name,
@@ -114,6 +138,7 @@ class Reflector {
         if (this.DEBUG) {
             debug('DEBUG=true Here are all configs:',
                 '\nbaseConfig', baseConfig,
+                '\nfileConfig', fileConfig,
                 '\nenvConfig', envConfig,
                 '\nmeasured', measured,
                 '\nconfig', config,
@@ -149,25 +174,85 @@ class Reflector {
 
         // Create HTTPS server if TLS is enabled
         if (this.config.useTls) {
-            const cert = fs.readFileSync(this.config.cert);
-            const key = fs.readFileSync(this.config.key);
+            // Multi-hostname support with SNI (Server Name Indication)
+            if (this.config.hostnames && this.config.hostnames.length > 0) {
+                // Load all certificates for multi-hostname setup
+                const certContexts = {};
+                const certFiles = [];
 
-            httpsServer = https.createServer({ key, cert }, this.fileServerLogic()).listen(this.config.https, "0.0.0.0");
-            result.https = this.config.https;
+                for (const hostConfig of this.config.hostnames) {
+                    const cert = fs.readFileSync(hostConfig.cert);
+                    const key = fs.readFileSync(hostConfig.key);
+                    certContexts[hostConfig.hostname] = { key, cert };
+                    certFiles.push(hostConfig.cert, hostConfig.key);
+                    info(`Loaded TLS certificate for ${hostConfig.hostname}`);
+                }
 
-            // Reload certificates if they change
-            chokidar.watch([this.config.cert, this.config.key], {
-                persistent: true,
-                ignoreInitial: true
-            }).on('change', path => {
-                log(`Certificate file changed: ${path}`);
-                const newContext = {
-                    key: fs.readFileSync(this.config.key),
-                    cert: fs.readFileSync(this.config.cert)
-                };
-                httpsServer.setSecureContext(newContext);
-                log('Certificates reloaded successfully');
-            });
+                // Use the first hostname as default
+                const defaultContext = certContexts[this.config.hostnames[0].hostname];
+
+                // Create HTTPS server with SNI callback for multi-hostname support
+                httpsServer = https.createServer({
+                    ...defaultContext,
+                    SNICallback: (servername, callback) => {
+                        if (this.DEBUG) debug(`SNI request for: ${servername}`);
+                        const context = certContexts[servername];
+                        if (context) {
+                            callback(null, tls.createSecureContext(context));
+                        } else {
+                            // Fall back to default context
+                            callback(null, tls.createSecureContext(defaultContext));
+                        }
+                    }
+                }, this.fileServerLogic());
+
+                httpsServer.listen(this.config.https, "0.0.0.0");
+                result.https = this.config.https;
+
+                // Watch all certificate files for changes
+                chokidar.watch(certFiles, {
+                    persistent: true,
+                    ignoreInitial: true
+                }).on('change', changedPath => {
+                    log(`Certificate file changed: ${changedPath}`);
+
+                    // Reload all certificates
+                    for (const hostConfig of this.config.hostnames) {
+                        try {
+                            const cert = fs.readFileSync(hostConfig.cert);
+                            const key = fs.readFileSync(hostConfig.key);
+                            certContexts[hostConfig.hostname] = { key, cert };
+                            log(`Reloaded certificate for ${hostConfig.hostname}`);
+                        } catch (err) {
+                            error(`Failed to reload certificate for ${hostConfig.hostname}:`, err.message);
+                        }
+                    }
+
+                    log('All certificates reloaded successfully');
+                });
+
+            } else {
+                // Single hostname setup (legacy mode)
+                const cert = fs.readFileSync(this.config.cert);
+                const key = fs.readFileSync(this.config.key);
+
+                httpsServer = https.createServer({ key, cert }, this.fileServerLogic()).listen(this.config.https, "0.0.0.0");
+                result.https = this.config.https;
+
+                // Reload certificates if they change
+                chokidar.watch([this.config.cert, this.config.key], {
+                    persistent: true,
+                    ignoreInitial: true
+                }).on('change', path => {
+                    log(`Certificate file changed: ${path}`);
+                    const newContext = {
+                        key: fs.readFileSync(this.config.key),
+                        cert: fs.readFileSync(this.config.cert)
+                    };
+                    httpsServer.setSecureContext(newContext);
+                    log('Certificates reloaded successfully');
+                });
+            }
         }
 
         // Create WebSocket server if enabled
@@ -221,7 +306,14 @@ class Reflector {
         }
 
         // Redirect all other requests to HTTPS
-        res.writeHead(308, { Location: this.config.baseUrl });
+        // Use the Host header to redirect to the correct hostname
+        const requestHost = req.headers.host || this.config.hostname;
+        const hostname = requestHost.split(':')[0]; // Remove port if present
+
+        // Build redirect URL based on requested hostname
+        const redirectUrl = `https://${hostname}${this.config.https === 443 ? '' : `:${this.config.https}`}${req.url}`;
+
+        res.writeHead(308, { Location: redirectUrl });
         res.end();
     }
 

@@ -1,0 +1,30 @@
+{
+  "http": 8080,
+  "https": 8443,
+  "useTls": true,
+  "enableWebsockets": true,
+  "useCache": true,
+  "useGzip": true,
+  "logFileServerRequests": true,
+  "superCacheEnabled": false,
+  "debug": false,
+  "runAsUser": "",
+  "hostnames": [
+    {
+      "hostname": "example.com",
+      "cert": "/etc/letsencrypt/live/example.com/fullchain.pem",
+      "key": "/etc/letsencrypt/live/example.com/privkey.pem"
+    },
+    {
+      "hostname": "www.example.com",
+      "cert": "/etc/letsencrypt/live/www.example.com/fullchain.pem",
+      "key": "/etc/letsencrypt/live/www.example.com/privkey.pem"
+    },
+    {
+      "hostname": "api.example.com",
+      "cert": "/etc/letsencrypt/live/api.example.com/fullchain.pem",
+      "key": "/etc/letsencrypt/live/api.example.com/privkey.pem"
+    }
+  ]
+}
+
