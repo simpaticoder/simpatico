@@ -1,5 +1,4 @@
 import {Component, computed, signal} from '@angular/core';
-import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'increment-counter',
