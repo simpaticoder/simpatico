@@ -1,5 +1,17 @@
 private
 node_modules
 **/*.pem
-config.js
+server.config.json
+
+# IDE
+.idea/
+.vscode/
 *.iml
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
