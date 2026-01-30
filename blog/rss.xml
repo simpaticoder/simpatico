@@ -12,9 +12,9 @@
             <pubDate>Thu, 29 Jan 2026 00:00:00 GMT</pubDate>
         </item>
         <item>
-            <title>editor.html</title>
+            <title>Div-Based Diagram Editor</title>
             <link>blog/editor.html</link>
-            <description>editor.html</description>
+            <description>A simple div-based diagram editor with drag, resize, and grouping</description>
             <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
@@ -24,9 +24,9 @@
             <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
-            <title>set.html</title>
+            <title>SET Game in Vanilla JS</title>
             <link>blog/set.html</link>
-            <description>set.html</description>
+            <description>Play the Set card game in your browser - vanilla JavaScript implementation</description>
             <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
