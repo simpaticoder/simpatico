@@ -28,64 +28,72 @@ HOST="${2:-$DOMAIN}"
 
 echo "=== Upgrading Node.js to $NEW_VERSION on $HOST ==="
 
-REMOTE_SCRIPT="
+# Script runs as root on the server
+REMOTE_SCRIPT='
 set -euo pipefail
 
-SERVICE_USER=\"$SERVICE_USER\"
-NEW_VERSION=\"$NEW_VERSION\"
+SERVICE_USER="simpatico"
+NEW_VERSION="'"$NEW_VERSION"'"
 
-log() { echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] \$*\"; }
+log() { echo "[$(date "+%Y-%m-%d %H:%M:%S")] $*"; }
 
 # Get current version
-CURRENT_NODE=\$(readlink -f /usr/local/bin/node 2>/dev/null || echo 'none')
-log \"Current node: \$CURRENT_NODE\"
+CURRENT_NODE=$(readlink -f /usr/local/bin/node 2>/dev/null || echo "none")
+log "Current node: $CURRENT_NODE"
 
 # Install new version (keeps old versions)
-log \"Installing Node.js \$NEW_VERSION...\"
-sudo -u \"\$SERVICE_USER\" bash -c \"source ~/.nvm/nvm.sh && nvm install \$NEW_VERSION\"
+log "Installing Node.js $NEW_VERSION..."
+su - "$SERVICE_USER" -c "source ~/.nvm/nvm.sh && nvm install $NEW_VERSION"
 
 # Get path to new version
-NEW_NODE=\$(sudo -u \"\$SERVICE_USER\" bash -c \"source ~/.nvm/nvm.sh && nvm which \$NEW_VERSION\")
-log \"New node binary: \$NEW_NODE\"
+NEW_NODE=$(su - "$SERVICE_USER" -c "source ~/.nvm/nvm.sh && nvm which $NEW_VERSION")
+log "New node binary: $NEW_NODE"
 
 # Verify new version works
-log \"Testing new Node.js...\"
-\$NEW_NODE --version
+log "Testing new Node.js..."
+su - "$SERVICE_USER" -c "$NEW_NODE --version"
 
 # Update symlink
-log \"Updating /usr/local/bin/node symlink...\"
-sudo ln -sf \"\$NEW_NODE\" /usr/local/bin/node
+log "Updating /usr/local/bin/node symlink..."
+ln -sf "$NEW_NODE" /usr/local/bin/node
 
 # Verify symlink
-log \"Symlink now points to: \$(readlink -f /usr/local/bin/node)\"
-log \"Node version: \$(/usr/local/bin/node --version)\"
+log "Symlink now points to: $(readlink -f /usr/local/bin/node)"
+log "Node version: $(/usr/local/bin/node --version)"
 
 # Restart service
 if systemctl is-enabled --quiet simpatico 2>/dev/null; then
-    log \"Restarting simpatico service...\"
-    sudo systemctl restart simpatico
+    log "Restarting simpatico service..."
+    systemctl restart simpatico
     sleep 2
     if systemctl is-active --quiet simpatico; then
-        log \"Service restarted successfully\"
-        log \"\"
-        log \"=== Upgrade complete! ===\"
-        log \"Old: \$CURRENT_NODE\"
-        log \"New: \$NEW_NODE\"
-        log \"\"
-        log \"To rollback if needed:\"
-        log \"  sudo ln -sf \$CURRENT_NODE /usr/local/bin/node\"
-        log \"  sudo systemctl restart simpatico\"
+        log "Service restarted successfully"
+        log ""
+        log "=== Upgrade complete! ==="
+        log "Old: $CURRENT_NODE"
+        log "New: $NEW_NODE"
+        log ""
+        log "To rollback if needed:"
+        log "  sudo ln -sf $CURRENT_NODE /usr/local/bin/node"
+        log "  sudo systemctl restart simpatico"
     else
-        log \"ERROR: Service failed to start! Rolling back...\"
-        sudo ln -sf \"\$CURRENT_NODE\" /usr/local/bin/node
-        sudo systemctl restart simpatico
-        log \"Rolled back to \$CURRENT_NODE\"
+        log "ERROR: Service failed to start! Rolling back..."
+        ln -sf "$CURRENT_NODE" /usr/local/bin/node
+        systemctl restart simpatico
+        log "Rolled back to $CURRENT_NODE"
         exit 1
     fi
 else
-    log \"Service not enabled, skipping restart\"
+    log "Service not enabled, skipping restart"
 fi
-"
+'
 
-ssh -t "$ADMIN_USER@$HOST" "$REMOTE_SCRIPT"
+# Create temp file with the script
+TMPFILE=$(mktemp)
+trap "rm -f $TMPFILE" EXIT
+echo "$REMOTE_SCRIPT" > "$TMPFILE"
+
+# Copy and execute with sudo
+scp -q "$TMPFILE" "$ADMIN_USER@$HOST:/tmp/upgrade-node-script.sh"
+ssh "$ADMIN_USER@$HOST" 'sudo bash /tmp/upgrade-node-script.sh; rm -f /tmp/upgrade-node-script.sh'
 
