@@ -87,3 +87,9 @@ For beginners, running simpatico as a single stand-alone process makes it simple
 A strong argument for the conventional proxy is it's enormous feature-set - nginx can serve many domains, for example, where simpatico cannot.
 Nginx is far more standards compliant; simpatico does the bare minimum HTTP/1.1 and does not support all MIME types and has inflexible headers.
 As with all software tools, there are tradeoffs.
+
+### Automated Deployment
+
+See [DEPLOY.md](DEPLOY.md) for automated provisioning and deployment scripts.
+
+See [ops/provision.conf.example](ops/provision.conf.example) for configuration options.

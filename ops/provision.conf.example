@@ -1,0 +1,27 @@
+# =============================================================================
+# PROVISION.CONF - Configuration for server provisioning
+# =============================================================================
+# Copy this file to provision.conf and edit with your values:
+#   cp ops/provision.conf.example ops/provision.conf
+#
+# IMPORTANT: Do not commit provision.conf - it contains sensitive data
+# =============================================================================
+
+# Server identity
+HOSTNAME="simpatico"
+DOMAIN="simpatico.io"
+TIMEZONE="America/Los_Angeles"
+
+# Admin user (your personal account with sudo access)
+ADMIN_USER="josh"
+ADMIN_SSH_PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... your-key-here"
+
+# Service user (runs the application, no login)
+SERVICE_USER="simpatico"
+
+# Repository to clone
+SERVICE_REPO="https://github.com/simpaticoder/simpatico.git"
+
+# Node.js version to install
+NODE_VERSION="22"
+

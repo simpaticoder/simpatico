@@ -6,6 +6,7 @@ import tls from 'node:tls';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import {createHash, randomBytes} from 'node:crypto';
+import {execSync} from 'node:child_process';
 import * as os from "node:os";
 
 
@@ -46,8 +47,21 @@ class Reflector {
         this.cache = {};
         this.connections = {};
         this.config = this.processConfig();
+        this.gitCommit = this.getGitCommit();
 
         info(`reflector.js [${JSON.stringify(this.config, null, 2)}]`);
+    }
+
+    /**
+     * Get the current git commit hash
+     * @returns {string} Short git commit hash or 'unknown'
+     */
+    getGitCommit() {
+        try {
+            return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+        } catch {
+            return 'unknown';
+        }
     }
 
     async initialize() {
@@ -469,6 +483,29 @@ class Reflector {
             if (req.url === '/favicon.ico') {
                 res.writeHead(204, { 'Content-Type': 'image/x-icon' });
                 res.end();
+                return;
+            }
+
+            // Status endpoint - returns runtime environment info
+            if (req.url === '/status' || req.url === '/status/') {
+                const mem = process.memoryUsage();
+                const status = {
+                    git: this.gitCommit,
+                    node: process.version,
+                    platform: os.platform(),
+                    arch: os.arch(),
+                    uptime: Math.floor(process.uptime()),
+                    started: this.config.measured.started,
+                    memory: {
+                        rss: Math.round(mem.rss / 1024 / 1024) + ' MB',
+                        heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + ' MB',
+                        heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + ' MB',
+                    },
+                    hostname: this.config.hostname,
+                    version: this.config.measured.version,
+                };
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(status, null, 2));
                 return;
             }
 
