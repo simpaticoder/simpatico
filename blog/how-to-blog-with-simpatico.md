@@ -1,3 +1,9 @@
+---
+title: How to Blog with Simpatico
+date: 2025-04-08
+description: Step-by-step guide to creating blog posts with Simpatico
+---
+
 # simpaticoder from USA on 4/8/2025
 
 To start a Simpatico blog:

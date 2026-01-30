@@ -1,3 +1,9 @@
+---
+title: Staircase and Partial Sums Coding Challenges
+date: 2025-08-25
+description: Two classic coding challenges - printing staircases and computing partial sums
+---
+
 # Print a staircase coding challenge
 
 Basically they wanted you to write a function that print out something like this for `n=4`:

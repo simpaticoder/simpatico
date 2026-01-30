@@ -1,3 +1,9 @@
+---
+title: Programming the Set Card Game
+date: 2025-08-25
+description: Building the Set card game - deck generation, set detection, and SVG rendering
+---
+
 The game "Set" is a lovely game of pattern recognition and also teaches the player to be careful with their impulse to yell "set!" when they see one. Let's program the game.
 
 ## Generate the Deck
@@ -34,7 +40,7 @@ for (let i = deck.length - 1; i > 0; i--) {
 
 ## Finding a set
 
-A set in Set is defined as 3 cards where every property is either the same or different. This implementation is somewhat clever since it uses JavaScripts `Set` to find a set, by using it to check when only 2 properties are the same, and so not a set: 
+A set in Set is defined as 3 cards where every property is either the same or different. This implementation is somewhat clever since it uses JavaScripts `Set` to find a set, by using it to check when only 2 properties are the same, and so not a set:
 
 ```js
 function isSet(card1, card2, card3) {
@@ -123,7 +129,7 @@ function cardToSVG([number, symbol, shading, color], width = 120, height = 180) 
       case 0: return `<ellipse cx="${cx}" cy="${cy}" rx="32" ry="16" stroke="${colors[color]}"
         stroke-width="4" fill="${getFill(colors[color])}" />`;
       // Diamond
-      case 1: return `<polygon points="${cx-28},${cy} ${cx},${cy-17} ${cx+28},${cy} ${cx},${cy+17}" 
+      case 1: return `<polygon points="${cx-28},${cy} ${cx},${cy-17} ${cx+28},${cy} ${cx},${cy+17}"
         stroke="${colors[color]}" stroke-width="4" fill="${getFill(colors[color])}" />`;
       // Squiggle (approximated as a ribbon curve)
       case 2: return `<path d="

@@ -1,27 +1,63 @@
-
-      <rss version="2.0">
-          <channel>
-              <title>Simpatico developer blog</title>
-              <link>blog/</link>
-              <description>Making software, together</description>
-              
-                <item>
-                  <title>index</title>
-                  <link>blog/index.md</link>
-                  <description>index.md</description>
-                </item>
-
-                <item>
-                  <title>1</title>
-                  <link>blog/1.md</link>
-                  <description>1.md</description>
-                </item>
-
-                <item>
-                  <title>2</title>
-                  <link>blog/2.md</link>
-                  <description>2.md</description>
-                </item>
-          </channel>
-      </rss>
-  
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Simpatico developer blog</title>
+        <link>blog/</link>
+        <description>Making software, together</description>
+        
+        <item>
+            <title>How the Blog System Works</title>
+            <link>blog/blog.md</link>
+            <description>The architecture of Simpatico's blog - posts as markdown, generated index and RSS</description>
+            <pubDate>Thu, 29 Jan 2026 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>editor.html</title>
+            <link>blog/editor.html</link>
+            <description>editor.html</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Programming the Set Card Game</title>
+            <link>blog/set-fun.md</link>
+            <description>Building the Set card game - deck generation, set detection, and SVG rendering</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>set.html</title>
+            <link>blog/set.html</link>
+            <description>set.html</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Staircase and Partial Sums Coding Challenges</title>
+            <link>blog/stairs-and-sum-coding-challenge.md</link>
+            <description>Two classic coding challenges - printing staircases and computing partial sums</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>A String Coding Challenge</title>
+            <link>blog/string-coding-challenge.md</link>
+            <description>Finding removable indices to match strings - from O(n²) to linear time</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Refocusing Simpatico</title>
+            <link>blog/thoughts.md</link>
+            <description>Thoughts on Simpatico's direction - secure browser connections and literate markdown</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Getting Started with Simpatico Blog</title>
+            <link>blog/1.md</link>
+            <description>How to start a Simpatico blog with a simple command</description>
+            <pubDate>Tue, 08 Apr 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>How to Blog with Simpatico</title>
+            <link>blog/how-to-blog-with-simpatico.md</link>
+            <description>Step-by-step guide to creating blog posts with Simpatico</description>
+            <pubDate>Tue, 08 Apr 2025 00:00:00 GMT</pubDate>
+        </item>
+    </channel>
+</rss>
