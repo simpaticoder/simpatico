@@ -207,6 +207,36 @@ class Reflector {
     }
 
     /**
+     * Get litmd configuration for a specific request, with hostname-specific documentRoot
+     * @param {import('http').IncomingMessage} req - HTTP request object (optional)
+     * @returns {object} Litmd configuration with documentRoot for template resolution
+     */
+    getLitmdConfigForRequest(req) {
+        // Start with base litmd config
+        const litmdConfig = { ...this.config.litmd };
+
+        // Determine documentRoot based on hostname
+        let documentRoot = this.config.documentRoot;
+        let hostname = this.config.hostname;
+
+        if (req && this.config.hostnames && this.config.hostnames.length > 0) {
+            const requestHost = req.headers.host || this.config.hostname;
+            hostname = requestHost.split(':')[0]; // Remove port if present
+
+            const hostConfig = this.config.hostnames.find(h => h.hostname === hostname);
+            if (hostConfig && hostConfig.documentRoot) {
+                documentRoot = hostConfig.documentRoot;
+            }
+        }
+
+        // Add documentRoot and hostname to litmd config
+        litmdConfig.documentRoot = documentRoot;
+        litmdConfig.hostname = hostname;
+
+        return litmdConfig;
+    }
+
+    /**
      * Bind HTTP and HTTPS servers to configured ports
      * @returns {{http: number, https: number, ws: number}} Object containing bound port numbers
      */
@@ -477,13 +507,20 @@ class Reflector {
 
             // Log request details
             const logRequest = req => {
-                log(
+                const parts = [
                     new Date().toISOString(),
                     req.socket.remoteAddress.replace(/^.*:/, ''),
+                ];
+                // Include hostname if multi-domain mode
+                if (this.config.hostnames && this.config.hostnames.length > 1) {
+                    parts.push(req.headers.host || '-');
+                }
+                parts.push(
                     req.headers["user-agent"].substring(0, 20),
                     req.url, "=>",
                     fileName,
                 );
+                log(...parts);
             };
 
             // Validate request has user-agent header
@@ -513,7 +550,7 @@ class Reflector {
                 }
 
                 try {
-                    const fromDisk = this.readProcessCache(fileName);
+                    const fromDisk = this.readProcessCache(fileName, req);
                     data = fromDisk.data;
                     hash = fromDisk.hash;
                 } catch (err) {
@@ -629,13 +666,15 @@ class Reflector {
             [path + '.md', path + '.html', path + '/index.md', path + '/index.html', path + '/README.md'];
     }
 
-    readProcessCache(fileName) {
+    readProcessCache(fileName, req = null) {
         // Read data from disk
         let data = fs.readFileSync(fileName);
         let hash = this.sha256(data);
 
         // 1. Convert literate markdown to HTML
-        data = buildHtmlFromLiterateMarkdown(data, fileName, this.config.litmd);
+        // Build hostname-specific litmd config with documentRoot for template resolution
+        const litmdConfig = this.getLitmdConfigForRequest(req);
+        data = buildHtmlFromLiterateMarkdown(data, fileName, litmdConfig);
 
         // 2. Replace sub-resource links with cache-busting URLs
         if (this.config.superCacheEnabled) {

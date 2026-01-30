@@ -273,6 +273,43 @@ Each hostname can serve files from a different directory:
 
 This allows you to host multiple completely separate websites on the same server, each with their own files and TLS certificates.
 
+### Custom Templates per Hostname
+
+Each hostname can have its own header, footer, and default imports for literate markdown files. This uses **convention over configuration**:
+
+1. If `{documentRoot}/lib/litmd-header.html` exists, it will be used instead of simpatico's default header
+2. If `{documentRoot}/lib/litmd-footer.html` exists, it will be used instead of simpatico's default footer
+3. If `{documentRoot}/lib/litmd-imports.js` exists, it will be used instead of simpatico's default imports
+
+**Example directory structure for a custom site:**
+
+```
+/var/www/joshrehman.com/
+├── lib/
+│   ├── litmd-header.html    # Custom header (optional)
+│   ├── litmd-footer.html    # Custom footer (optional)
+│   └── litmd-imports.js     # Custom JS imports (optional)
+├── vendor/                   # Front-end libraries
+│   ├── highlight.min.js
+│   └── github-markdown.css
+├── img/
+│   └── logo.svg
+├── index.md
+└── about.md
+```
+
+Each template file is checked independently, so you can override just the header while using simpatico's default footer.
+
+The templates support the same `{{placeholder}}` variables as simpatico's defaults:
+- `{{title}}` - Page title
+- `{{hostname}}` - Current hostname
+- `{{baseUrl}}` - Full base URL (e.g., `https://example.com`)
+- `{{specialPathPrefix}}` - Path prefix for resources (default: `/`)
+- `{{author}}` - Author name
+- `{{keywords}}` - Meta keywords
+- `{{copyrightHolder}}` - Copyright holder name
+- `{{copyrightYear}}` - Current year
+
 ## Environment Variables
 
 All configuration options can be set via environment variables with the `SIMP_` prefix:
