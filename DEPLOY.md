@@ -219,8 +219,6 @@ ops/
 ├── provision.conf          # Your config (gitignored)
 ├── provision.sh            # One-time server setup
 ├── deploy-remote.sh        # Recurring deployments
-├── upgrade-node.sh         # Safe Node.js upgrades
-├── lib.sh                  # Legacy helper functions
-└── deploy.sh               # Legacy deployment script
+└── upgrade-node.sh         # Safe Node.js upgrades
 ```
 
