@@ -1,51 +1,97 @@
+/**
+ * SVG utility functions for element selection, attribute manipulation, and animation.
+ *
+ * This module provides a lightweight alternative to D3 for simple SVG animations,
+ * using a "scatter/gather" pattern to transfer data between JS objects and DOM elements.
+ *
+ * @module svg
+ */
+
 import {as, getType, cast, hasProp} from '../lib/core.js';
 
-
-const elt = (idOrClass, parent) => {
-  if (parent){
-    return parent.getElementsByClassName(idOrClass)[0];
-  } else {
-    return document.getElementById(idOrClass);
-  }
-}
 /**
- * Scatter the entries of obj onto the attributes of elt. There is no return because it is pure side effect.
- * If the target is a 'g', then the [x,y,rotate,scale] entries are used to create a valid transform attribute value.
- * Any of [x,y,rotate,scale] are deleted from obj so they don't scatter to g itself.
+ * Find an element by ID or class name.
  *
- * If the target is a 'text' then we allow
+ * @param {string} idOrClass - The ID (without #) or class name (without .) to search for
+ * @param {Element} [parent] - Optional parent element to search within. If provided,
+ *   searches by class name within parent. If omitted, searches by ID in document.
+ * @returns {Element|null} The found element, or null/undefined if not found
  *
- * @param elt The target HTML element. Usually a g elt with a transform attribute containing 1 or 2 shapes.
- * @param obj The source javascript object, which this code will modify!
+ * @example
+ * // Find by ID
+ * const svg = elt('my-svg');
+ *
+ * // Find by class within a parent
+ * const circle = elt('node-circle', svgElement);
+ */
+const elt = (idOrClass, parent) => {
+  if (parent) {
+    return parent.getElementsByClassName(idOrClass)[0];
+  }
+  return document.getElementById(idOrClass);
+};
+
+/**
+ * Scatter object properties onto an element's attributes.
+ *
+ * This is the core function for animating SVG elements. It intelligently handles
+ * special cases for different element types:
+ *
+ * - **`<g>` elements**: `x`, `y`, `rotate`, `scale` are converted to a `transform` attribute
+ * - **`<circle>` elements**: `x`, `y` are mapped to `cx`, `cy` if not explicitly set
+ * - **`<g>` with children**: `fill` is applied to the first child element
+ * - **`<g>` with `<text>`**: `text` property sets the text content of nested `<text>` element
+ * - **`data-*` properties**: Stored as element properties (not attributes)
+ *
+ * @param {Element} elt - The target SVG/HTML element
+ * @param {Object} obj - Source object with properties to scatter. **Warning: this object is mutated!**
+ *   Properties are deleted after being processed for transforms, text, and fill.
+ * @returns {Element} The modified element
+ *
+ * @example
+ * // Animate a group element
+ * scatter(groupElt, {x: 10, y: 20, rotate: 45, scale: 1.5});
+ * // Results in: transform="translate(10, 20)rotate(45)scale(1.5)"
+ *
+ * @example
+ * // Update a circle position and color
+ * scatter(circleElt, {x: 50, y: 50, fill: 'red'});
+ * // Results in: cx="50" cy="50" fill="red"
  */
 const scatter = (elt, obj) => {
   as.elt(elt) && as.obj(obj);
-  // Special treatment for circles: treat x and y as cx cy if not explicitly specified.
-  if (elt.tagName === "circle") {
-    if (hasProp(obj, 'x') && !hasProp(obj, 'cx')) obj.cx= obj.x;
-    if (hasProp(obj, 'y') && !hasProp(obj, 'cy')) obj.cy= obj.y;
+
+  // Special treatment for circles: treat x and y as cx cy if not explicitly specified
+  if (elt.tagName === 'circle') {
+    if (hasProp(obj, 'x') && !hasProp(obj, 'cx')) obj.cx = obj.x;
+    if (hasProp(obj, 'y') && !hasProp(obj, 'cy')) obj.cy = obj.y;
   }
-  // If the target is a 'g', then build up the transform string from sub-clauses and remove those keys.
-  if (elt.tagName === "g" && !hasProp(obj, 'transform')){
+
+  // For <g> elements, build transform string from x, y, rotate, scale
+  if (elt.tagName === 'g' && !hasProp(obj, 'transform')) {
     const clauses = [];
-    // Convert x, y into a translate clause
-    if (hasProp(obj, 'x') && hasProp(obj, 'y') ){
+
+    if (hasProp(obj, 'x') && hasProp(obj, 'y')) {
       clauses.push(`translate(${obj.x}, ${obj.y})`);
-      delete obj.x; delete obj.y;
+      delete obj.x;
+      delete obj.y;
     }
-    if (hasProp(obj,'rotate')){
+    if (hasProp(obj, 'rotate')) {
       clauses.push(`rotate(${obj.rotate})`);
       delete obj.rotate;
     }
-    if (hasProp(obj,'scale')){
+    if (hasProp(obj, 'scale')) {
       clauses.push(`scale(${obj.scale})`);
       delete obj.scale;
     }
-    elt.setAttribute("transform", clauses.join(''));
+
+    if (clauses.length > 0) {
+      elt.setAttribute('transform', clauses.join(''));
+    }
   }
 
-  // Setting text value assumes one text elt somewhere beneath the g
-  if (hasProp(obj, 'text')){
+  // Set text content of nested <text> element
+  if (hasProp(obj, 'text')) {
     const textElt = elt.querySelector('text');
     if (textElt) {
       textElt.textContent = obj.text;
@@ -53,104 +99,143 @@ const scatter = (elt, obj) => {
     delete obj.text;
   }
 
-  if (
-    hasProp(obj, 'fill') &&
-    elt.tagName === "g" &&
-    elt.children.length > 0 &&
-    elt.children[0].tagName !== "g"
-  ){
+  // Apply fill to first child of <g> (common pattern for grouped shapes)
+  if (hasProp(obj, 'fill') && elt.tagName === 'g' &&
+      elt.children.length > 0 && elt.children[0].tagName !== 'g') {
     elt.children[0].setAttribute('fill', obj.fill);
     delete obj.fill;
   }
 
-
-  // Scatter the rest! This is why we deleted entries earlier, btw.
-  for (let [key, value] of Object.entries(obj)){
-    let old;
-    //handle data- elts
-    if (key.startsWith('data-')){
-      key = key.substring(5);
-      old = elt[key];
-      if (old !== value){
-        elt[key] = value;
+  // Scatter remaining properties as attributes
+  for (let [key, value] of Object.entries(obj)) {
+    if (key.startsWith('data-')) {
+      // Store data-* as element properties
+      const propName = key.substring(5);
+      if (elt[propName] !== value) {
+        elt[propName] = value;
       }
     } else {
-      old = elt.getAttribute(key);
-      if (value + '' !== old){
+      // Set as attribute (only if changed)
+      const old = elt.getAttribute(key);
+      if (String(value) !== old) {
         elt.setAttribute(key, value);
       }
     }
   }
+
   return elt;
 };
 
 /**
- * Gather the attributes of an element that match the keys present in an object, overwriting the values in
- * the object. This method correctly casts numbers and booleans from strings.
+ * Gather element attributes into an object, with type casting.
  *
- * @param elt The source HTML element
- * @param obj The target javascript object
- * @returns {{}}
+ * The inverse of `scatter`. Reads attributes from an element and writes them
+ * to the corresponding properties of the provided object. Values are cast
+ * to match the existing type of each property in the object.
+ *
+ * @param {Element} elt - The source SVG/HTML element
+ * @param {Object} obj - Target object. Only keys already present will be populated.
+ *   The existing value types determine how attribute strings are cast.
+ * @returns {Object} The modified object
+ *
+ * @example
+ * const state = {x: 0, y: 0, visible: true};
+ * gather(element, state);
+ * // state.x and state.y are now numbers parsed from attributes
+ * // state.visible is a boolean
  */
 const gather = (elt, obj) => {
   as.elt(elt) && as.obj(obj);
-  for (const key in obj){
-    if (!elt.hasAttribute(key)) continue;
-    const val = elt.getAttribute(key);
 
-    // try to cast into the type requested by the object
+  for (const key in obj) {
+    if (!elt.hasAttribute(key)) continue;
+
+    const val = elt.getAttribute(key);
     const type = getType(obj[key]);
-    if (type === 'number')
+
+    if (type === 'number') {
       obj[key] = parseLeadingNumber(val);
-    else
+    } else {
       obj[key] = cast(type, val);
+    }
   }
+
   return obj;
 };
 
+/**
+ * Parse a leading number from a string (e.g., "42px" -> 42).
+ *
+ * @param {string} str - String potentially starting with a number
+ * @returns {number|string} The parsed number, or the original string if no number found
+ * @private
+ */
 function parseLeadingNumber(str) {
-  const match = str.match(/^\d+(\.\d+)?/);
-  if (match) {
-    return parseFloat(match[0]);
-  }
-  return str;
+  const match = str.match(/^-?\d+(\.\d+)?/);
+  return match ? parseFloat(match[0]) : str;
 }
 
+// ============================================================================
+// Transform Parsing and Rendering
+// ============================================================================
+
+/** Radians to degrees conversion factor */
+const RAD_TO_DEG = 180 / Math.PI;
+
 /**
- * Parses the transform attributes from an SVG element's transform list.
+ * @typedef {Object} TranslateTransform
+ * @property {number} x - X-axis translation
+ * @property {number} y - Y-axis translation
+ */
+
+/**
+ * @typedef {Object} ScaleTransform
+ * @property {number} x - X-axis scaling factor
+ * @property {number} y - Y-axis scaling factor
+ */
+
+/**
+ * @typedef {Object} RotateTransform
+ * @property {number} angle - Rotation angle in degrees
+ * @property {number} [x] - X-coordinate of rotation center
+ * @property {number} [y] - Y-coordinate of rotation center
+ */
+
+/**
+ * @typedef {Object} MatrixTransform
+ * @property {number} a - Scale X
+ * @property {number} b - Skew Y
+ * @property {number} c - Skew X
+ * @property {number} d - Scale Y
+ * @property {number} e - Translate X
+ * @property {number} f - Translate Y
+ */
+
+/**
+ * @typedef {Object} ParsedTransform
+ * @property {TranslateTransform} [translate] - Translation values
+ * @property {ScaleTransform} [scale] - Scaling values
+ * @property {RotateTransform} [rotate] - Rotation values
+ * @property {number} [skewX] - Horizontal skew angle in degrees
+ * @property {number} [skewY] - Vertical skew angle in degrees
+ * @property {MatrixTransform} [matrix] - Raw matrix values
+ */
+
+/**
+ * Parse an SVG element's transform attribute into a structured object.
+ *
+ * Extracts individual transform components (translate, scale, rotate, skew, matrix)
+ * from the element's transform list and returns them as a plain object.
  *
  * @param {SVGGraphicsElement} elt - An SVG element with transform attribute(s)
- * @returns {Object} An object containing the parsed transform components:
- *   @returns {Object} [translate] - Translation values if present
- *     @returns {number} translate.x - X-axis translation
- *     @returns {number} translate.y - Y-axis translation
- *   @returns {Object} [scale] - Scaling values if present
- *     @returns {number} scale.x - X-axis scaling factor
- *     @returns {number} scale.y - Y-axis scaling factor
- *   @returns {Object} [rotate] - Rotation values if present
- *     @returns {number} rotate.angle - Rotation angle in degrees
- *     @returns {number} [rotate.x] - X-coordinate of rotation center (if specified)
- *     @returns {number} [rotate.y] - Y-coordinate of rotation center (if specified)
- *   @returns {number} [skewX] - Horizontal skew angle in degrees if present
- *   @returns {number} [skewY] - Vertical skew angle in degrees if present
- *   @returns {Object} [matrix] - Raw matrix values if a matrix transform is present
- *     @returns {number} matrix.a - Scale X
- *     @returns {number} matrix.b - Skew Y
- *     @returns {number} matrix.c - Skew X
- *     @returns {number} matrix.d - Scale Y
- *     @returns {number} matrix.e - Translate X
- *     @returns {number} matrix.f - Translate Y
+ * @returns {ParsedTransform} Object containing the parsed transform components
  *
  * @example
- * // For an SVG element with transform="translate(10, 20) scale(2, 3) rotate(45)"
- * const transformData = parseTransform(svgElement);
- * // Returns: {
- * //   translate: { x: 10, y: 20 },
- * //   scale: { x: 2, y: 3 },
- * //   rotate: { angle: 45 }
- * // }
+ * // For an element with transform="translate(10, 20) scale(2) rotate(45)"
+ * const t = parseTransform(element);
+ * // Returns: { translate: {x: 10, y: 20}, scale: {x: 2, y: 2}, rotate: {angle: 45} }
  */
-const parseTransform = elt => {
+const parseTransform = (elt) => {
   const result = {};
   const transformList = elt.transform.baseVal;
 
@@ -160,42 +245,33 @@ const parseTransform = elt => {
 
     switch (transform.type) {
       case SVGTransform.SVG_TRANSFORM_TRANSLATE:
-        result.translate = { x: m.e, y: m.f };
+        result.translate = {x: m.e, y: m.f};
         break;
 
       case SVGTransform.SVG_TRANSFORM_SCALE:
-        result.scale = { x: m.a, y: m.d };
+        result.scale = {x: m.a, y: m.d};
         break;
 
       case SVGTransform.SVG_TRANSFORM_ROTATE:
         if (transform.angle !== 0) {
-          // For rotate(angle, x, y) form, we need to extract the rotation center
-          const rotateX = transform.rotateX || 0;
-          const rotateY = transform.rotateY || 0;
           result.rotate = {
             angle: transform.angle,
-            x: rotateX,
-            y: rotateY
+            x: transform.rotateX || 0,
+            y: transform.rotateY || 0
           };
         }
         break;
 
       case SVGTransform.SVG_TRANSFORM_SKEWX:
-        // SkewX is represented by m.c in the matrix
-        result.skewX = Math.atan(m.c) * (180 / Math.PI);
+        result.skewX = Math.atan(m.c) * RAD_TO_DEG;
         break;
 
       case SVGTransform.SVG_TRANSFORM_SKEWY:
-        // SkewY is represented by m.b in the matrix
-        result.skewY = Math.atan(m.b) * (180 / Math.PI);
+        result.skewY = Math.atan(m.b) * RAD_TO_DEG;
         break;
 
       case SVGTransform.SVG_TRANSFORM_MATRIX:
-        // Store the full matrix values for a custom matrix transform
-        result.matrix = {
-          a: m.a, b: m.b, c: m.c,
-          d: m.d, e: m.e, f: m.f
-        };
+        result.matrix = {a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f};
         break;
 
       default:
@@ -207,210 +283,266 @@ const parseTransform = elt => {
 };
 
 /**
- * Creates a string value for an SVG transform attribute from an object representation.
+ * Render a transform object to an SVG transform attribute string.
  *
- * @param {Object} obj - Object containing transform components
- *   @param {Object} [obj.translate] - Translation values
- *     @param {number} obj.translate.x - X-axis translation
- *     @param {number} obj.translate.y - Y-axis translation
- *   @param {Object} [obj.scale] - Scaling values
- *     @param {number} obj.scale.x - X-axis scaling factor
- *     @param {number} obj.scale.y - Y-axis scaling factor
- *   @param {Object} [obj.rotate] - Rotation values
- *     @param {number} obj.rotate.angle - Rotation angle in degrees
- *     @param {number} [obj.rotate.x] - X-coordinate of rotation center
- *     @param {number} [obj.rotate.y] - Y-coordinate of rotation center
- *   @param {number} [obj.skewX] - Horizontal skew angle in degrees
- *   @param {number} [obj.skewY] - Vertical skew angle in degrees
- *   @param {Object} [obj.matrix] - Raw matrix values
- *     @param {number} obj.matrix.a - Scale X
- *     @param {number} obj.matrix.b - Skew Y
- *     @param {number} obj.matrix.c - Skew X
- *     @param {number} obj.matrix.d - Scale Y
- *     @param {number} obj.matrix.e - Translate X
- *     @param {number} obj.matrix.f - Translate Y
- * @returns {string} - SVG transform attribute string (e.g., "translate(10,20) scale(2,3)")
+ * The inverse of `parseTransform`. Converts a structured transform object
+ * back into a string suitable for the `transform` attribute.
+ *
+ * @param {ParsedTransform} obj - Object containing transform components
+ * @returns {string} SVG transform attribute string (e.g., "translate(10,20) scale(2)")
  *
  * @example
- * const transformObj = {
- *   translate: { x: 10, y: 20 },
- *   scale: { x: 2, y: 3 },
- *   rotate: { angle: 45, x: 100, y: 100 }
- * };
- * renderTransform(transformObj);
- * // Returns: "translate(10,20) scale(2,3) rotate(45,100,100)"
+ * renderTransform({
+ *   translate: {x: 10, y: 20},
+ *   rotate: {angle: 45, x: 50, y: 50}
+ * });
+ * // Returns: "translate(10,20) rotate(45,50,50)"
  */
-const renderTransform = obj => {
+const renderTransform = (obj) => {
   const parts = [];
 
   if (obj.translate) {
     parts.push(`translate(${obj.translate.x},${obj.translate.y})`);
   }
-
   if (obj.scale) {
     parts.push(`scale(${obj.scale.x},${obj.scale.y})`);
   }
-
   if (obj.rotate) {
-    // Handle both simple rotation and rotation around a point
-    if (obj.rotate.x !== undefined && obj.rotate.y !== undefined) {
-      parts.push(`rotate(${obj.rotate.angle},${obj.rotate.x},${obj.rotate.y})`);
-    } else {
-      parts.push(`rotate(${obj.rotate.angle})`);
-    }
+    const {angle, x, y} = obj.rotate;
+    parts.push(x !== undefined && y !== undefined
+      ? `rotate(${angle},${x},${y})`
+      : `rotate(${angle})`);
   }
-
   if (obj.skewX !== undefined) {
     parts.push(`skewX(${obj.skewX})`);
   }
-
   if (obj.skewY !== undefined) {
     parts.push(`skewY(${obj.skewY})`);
   }
-
   if (obj.matrix) {
-    const { a, b, c, d, e, f } = obj.matrix;
+    const {a, b, c, d, e, f} = obj.matrix;
     parts.push(`matrix(${a},${b},${c},${d},${e},${f})`);
   }
 
   return parts.join(' ');
 };
 
+// ============================================================================
+// Geometry and Collision Detection
+// ============================================================================
+
 /**
- * Given two rectangles in the form {top:a, bottom:b, left: c, right: d} return true if they intersect.
+ * @typedef {Object} Rect
+ * @property {number} top - Top edge Y coordinate
+ * @property {number} bottom - Bottom edge Y coordinate
+ * @property {number} left - Left edge X coordinate
+ * @property {number} right - Right edge X coordinate
+ */
+
+/**
+ * @typedef {Object} CardinalRect
+ * @property {number} N - North (top) edge Y coordinate
+ * @property {number} S - South (bottom) edge Y coordinate
+ * @property {number} E - East (right) edge X coordinate
+ * @property {number} W - West (left) edge X coordinate
+ */
+
+/**
+ * @typedef {Object} Point
+ * @property {number} x - X coordinate
+ * @property {number} y - Y coordinate
+ */
+
+/**
+ * Test if two rectangles intersect.
  *
- * @param r1 {{top:number, bottom:number, left: number, right: number}}
- * @param r2 {{top:number, bottom:number, left: number, right: number}}
- * @returns {boolean} true if they intersect
+ * Uses the separating axis theorem - rectangles intersect unless one is
+ * completely to the left, right, above, or below the other.
+ *
+ * @param {Rect} r1 - First rectangle (e.g., from getBoundingClientRect)
+ * @param {Rect} r2 - Second rectangle
+ * @returns {boolean} True if rectangles overlap
+ *
+ * @example
+ * const a = {top: 0, bottom: 10, left: 0, right: 10};
+ * const b = {top: 5, bottom: 15, left: 5, right: 15};
+ * intersectRect(a, b); // true (they overlap)
  */
 const intersectRect = (r1, r2) => !(
-    r2.left   > r1.right  ||
-    r2.right  < r1.left   ||
-    r2.top    > r1.bottom ||
-    r2.bottom < r1.top
-  );
-
-const isInsideRec = ({x, y}, {N, S, E, W}) => (N >= y && y >= S) && (E >= x && x >= W);
+  r2.left > r1.right ||
+  r2.right < r1.left ||
+  r2.top > r1.bottom ||
+  r2.bottom < r1.top
+);
 
 /**
- * Compute whether the bounding boxes of two elements intersect.
- * Note that type assertions would be correct, but slow down this code which tends to be called very frequently
- * in simulations and animations.
+ * Test if a point is inside a rectangle (using cardinal directions).
  *
- * @param e1 An SVG or HTML element.
- * @param e2 Another SVG or HTML element.
- * @returns {boolean} True if the elements bounding rectangle intersect, false otherwise.
+ * @param {Point} point - The point to test
+ * @param {CardinalRect} rect - Rectangle with N/S/E/W bounds
+ * @returns {boolean} True if point is inside rectangle
  */
-const intersectingElts =  (e1, e2) => intersectRect(e1.getBoundingClientRect(), e2.getBoundingClientRect());
+const isInsideRect = ({x, y}, {N, S, E, W}) =>
+  (N >= y && y >= S) && (E >= x && x >= W);
 
 /**
- * Compute whether the given point is contained within the list of points. This function has more than
- * a little voodoo.
+ * Test if two DOM elements' bounding boxes intersect.
  *
- * @param poly A list of points in {x,y} format, e.g. [{x:1,y:3},{x:0,y:-7},{x:23,y:-10}]
- * @param point An object representation of a point like {x:1, y:3}
- * @returns {boolean} True if the point is contained within the polygon formed by the list of points.
+ * Convenience wrapper around `intersectRect` using `getBoundingClientRect`.
+ * Note: Avoids type assertions for performance in animation loops.
+ *
+ * @param {Element} e1 - First SVG or HTML element
+ * @param {Element} e2 - Second SVG or HTML element
+ * @returns {boolean} True if bounding boxes overlap
+ */
+const intersectingElts = (e1, e2) =>
+  intersectRect(e1.getBoundingClientRect(), e2.getBoundingClientRect());
+
+/**
+ * Test if a point is inside a polygon using ray casting algorithm.
+ *
+ * Casts a horizontal ray from the point and counts edge crossings.
+ * An odd count means the point is inside.
+ *
+ * @param {Point[]} poly - Array of points forming the polygon vertices
+ * @param {Point} point - The point to test
+ * @returns {boolean} True if point is inside the polygon
+ *
+ * @example
+ * const triangle = [{x: 0, y: 0}, {x: 10, y: 0}, {x: 5, y: 10}];
+ * isPointInPoly(triangle, {x: 5, y: 5}); // true
+ * isPointInPoly(triangle, {x: 0, y: 10}); // false
  */
 const isPointInPoly = (poly, point) => {
-  const {x,y} = point;
+  const {x, y} = point;
   const len = poly.length;
-  let i = -1, j = len -1;
-  for(; ++i < len; j = i){
-    const {x:xi, y:yi} = poly[i];
-    const {x:xj, y:yj} = poly[j];
-    if ((
-      (yi <= y && y < yj) ||  // y sits between two adjacent y's of the poly
-      (yj <= y && y < yi)
-    ) && (x <                 // x is less than...some mysterious number!
-      xi + (xj - xi) * (y - yi) / (yj - yi)
-    )) return true;
+  let inside = false;
+
+  for (let i = 0, j = len - 1; i < len; j = i++) {
+    const {x: xi, y: yi} = poly[i];
+    const {x: xj, y: yj} = poly[j];
+
+    // Check if horizontal ray from point crosses this edge
+    const intersects = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+
+    if (intersects) inside = !inside;
   }
-  return false;
-}
 
+  return inside;
+};
 
+// ============================================================================
+// Animation Clock
+// ============================================================================
+
+/** Counter for generating unique clock IDs */
 let lastClockId = 0;
+
 /**
- *  A clock that ticks at the RAF rate, and dispatches a global 'tick' event with a timestamp.
- *  The clock can be throttled, and can be polite by disabling ticks when the page is not visible.
- *  The clock can be stopped and restarted and reset to zero.
+ * @typedef {Object} Clock
+ * @property {string} clockId - Unique identifier for this clock's events (e.g., "tick0")
+ * @property {function(): void} start - Start the clock ticking
+ * @property {function(): void} stop - Stop the clock
+ * @property {function(): void} toggle - Toggle between running and stopped
+ * @property {function(): void} reset - Reset the throttle counter
+ * @property {number} ticksPerSecond - Current tick rate (rolling average)
+ */
+
+/**
+ * Create an animation clock that dispatches tick events via requestAnimationFrame.
  *
- *  The event looks like  CustomEvent(clockId, {detail: {t, ticksPerSecond})
- *  where clockId looks like "tickN" where N is a module-scoped counter.
- *  t is the current time from Date.now() - ms since the epoch, can turn into a date with new Date(timestamp), etc.
- *  ticksPerSecond gives you a sense of what your throttle is doing.
- *  On my machine I manually tuned it to around 30tps with a throttle of 5 - but it natively goes to 160tps.
+ * The clock dispatches CustomEvents on `window` with the clock's ID as the event type.
+ * Event detail contains `{t, ticksPerSecond}` where `t` is the current timestamp.
  *
- * @param throttle factor to throttle "native speed" requestAnimationFrame pump.
- * @param timeOut
- * @param ticking true to start the clock ticking, false otherwise. (default true)
- * @param polite true to stop ticking on visibility change (default true)
- * @param n Not sure why you'd ever set this - it's the starting position of the counter used to compute throttle.
- * @returns {{stop: stop, start: start, reset: reset, n: number}}
+ * Features:
+ * - **Throttling**: Skip frames to reduce CPU usage
+ * - **Timeout**: Automatically stop after a duration
+ * - **Polite mode**: Pause when page is hidden (saves battery)
+ *
+ * @param {number} [throttle=1] - Only dispatch every Nth frame (1 = every frame)
+ * @param {number} [timeOut=0] - Auto-stop after this many ms (0 = never)
+ * @param {boolean} [ticking=true] - Start immediately if true
+ * @param {boolean} [polite=true] - Pause when page visibility changes
+ * @param {number} [n=0] - Initial throttle counter value
+ * @returns {Clock} Clock control object
+ *
+ * @example
+ * // Create a clock that ticks ~30fps
+ * const clock = clock(2); // Skip every other frame
+ *
+ * window.addEventListener(clock.clockId, (e) => {
+ *   console.log('Tick at', e.detail.t, 'fps:', e.detail.ticksPerSecond);
+ * });
+ *
+ * // Later: stop the clock
+ * clock.stop();
  */
 const clock = (throttle = 1, timeOut = 0, ticking = true, polite = true, n = 0) => {
   const clockId = 'tick' + lastClockId++;
+  const startTime = Date.now();
+  let ticksPerSecond = 30; // Initial estimate
+  let t = startTime;
 
-  const start = Date.now();
-  let ticksPerSecond = 30; // a guess
-  let t = start;
-  const isTimedOut = (t2=Date.now(), t1=start) => (timeOut > 0) && (t2 > t1 + timeOut);
+  const isTimedOut = () => timeOut > 0 && (Date.now() > startTime + timeOut);
 
-  // This is the heart of the clock. It is a recursive function that calls itself at the RAF rate.
   const tick = () => {
     if ((++n % throttle) === 0) {
-      n = 0; // may as well keep it small
-      // Get the newT and perform some cheap calculations to track ticks per second.
+      n = 0;
+
       const newT = Date.now();
       const msPerTick = newT - t;
-      const newTicksPerSecond = msPerTick > 0 ? 1000 / msPerTick : 1;
-      ticksPerSecond = (ticksPerSecond + newTicksPerSecond) / 2;
-
+      const newTps = msPerTick > 0 ? 1000 / msPerTick : ticksPerSecond;
+      ticksPerSecond = (ticksPerSecond + newTps) / 2; // Rolling average
       t = newT;
 
-      // This line is particularly important, since it defines the payload of the event.
-      const event = new CustomEvent(clockId, {detail: {t, ticksPerSecond}});
-      window.dispatchEvent(event);
+      window.dispatchEvent(new CustomEvent(clockId, {
+        detail: {t, ticksPerSecond}
+      }));
     }
-    if (ticking && !isTimedOut(t)) window.requestAnimationFrame(tick);
+
+    if (ticking && !isTimedOut()) {
+      window.requestAnimationFrame(tick);
+    }
   };
 
-
+  // Pause when page is hidden to save resources
   if (polite) {
-    // Disable ticks in the background, useful because websockets will keep the page alive.
     window.addEventListener('visibilitychange', () => {
-      const visible = document.visibilityState === 'visible';
-      const hidden = document.visibilityState === 'hidden';
-      if (!(visible || hidden)) throw 'invalid visibility state ' + document.visibilityState;
-      ticking = visible;
+      const wasHidden = !ticking;
+      ticking = document.visibilityState === 'visible';
+      if (ticking && wasHidden) tick(); // Resume
     });
   }
 
-  if (ticking){
-    tick();
-  }
+  if (ticking) tick();
+
   return {
     clockId,
-    start: () => {ticking = true; tick()},
-    stop:  () => {ticking = false},
+    start: () => { ticking = true; tick(); },
+    stop: () => { ticking = false; },
     toggle: () => {
       ticking = !ticking;
       if (ticking) {
-        tick();
         t = Date.now();
+        tick();
       }
-      console.log('svg.js:clock().toggle()', 'clockId', clockId, 'ticking', ticking, 't', new Date(t).toLocaleTimeString(), 'n', n, 'ticksPerSecond', ticksPerSecond);
     },
-    reset: () => {n = 0},
-    ticksPerSecond,
-  }
-}
+    reset: () => { n = 0; },
+    get ticksPerSecond() { return ticksPerSecond; }
+  };
+};
+
 
 export {
   elt,
-  scatter, gather,
-  parseTransform, renderTransform,
-  intersectRect, isInsideRec, intersectingElts, isPointInPoly,
+  scatter,
+  gather,
+  parseTransform,
+  renderTransform,
+  intersectRect,
+  isInsideRect,
+  intersectingElts,
+  isPointInPoly,
   clock,
 };
-
