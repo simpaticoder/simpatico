@@ -6,46 +6,34 @@
         <description>A developer blog</description>
         
         <item>
-            <title>stree-visualization</title>
-            <link>lab/stree-visualization.md</link>
-            <description>stree-visualization</description>
-            <pubDate>Thu, 29 Jan 2026 00:00:00 GMT</pubDate>
-        </item>
-        <item>
             <title>Visual CPU Instruction Simulator</title>
             <link>lab/bitmap.html</link>
             <description>Visual CPU Instruction Simulator</description>
-            <pubDate>Sat, 10 Jan 2026 00:00:00 GMT</pubDate>
-        </item>
-        <item>
-            <title>secure-socket</title>
-            <link>lab/websocket/secure-socket.md</link>
-            <description>secure-socket</description>
-            <pubDate>Sat, 10 Jan 2026 00:00:00 GMT</pubDate>
+            <pubDate>Sat, 31 Jan 2026 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>NOTE</title>
             <link>lab/angular/NOTE.md</link>
             <description>NOTE</description>
-            <pubDate>Fri, 05 Sep 2025 00:00:00 GMT</pubDate>
+            <pubDate>Sun, 07 Sep 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>README</title>
             <link>lab/angular/README.md</link>
             <description>README</description>
-            <pubDate>Fri, 05 Sep 2025 00:00:00 GMT</pubDate>
-        </item>
-        <item>
-            <title>simple-websocket</title>
-            <link>lab/websocket/simple-websocket.md</link>
-            <description>simple-websocket</description>
-            <pubDate>Fri, 05 Sep 2025 00:00:00 GMT</pubDate>
+            <pubDate>Sun, 07 Sep 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>ProofOfWork</title>
             <link>lab/websocket/ProofOfWork.md</link>
             <description>ProofOfWork</description>
-            <pubDate>Wed, 03 Sep 2025 00:00:00 GMT</pubDate>
+            <pubDate>Sun, 07 Sep 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>secure-socket</title>
+            <link>lab/websocket/secure-socket.md</link>
+            <description>secure-socket</description>
+            <pubDate>Sun, 07 Sep 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>crypto</title>
@@ -60,27 +48,39 @@
             <pubDate>Sat, 30 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
+            <title>websocket-simple</title>
+            <link>lab/websocket/excercises/websocket-simple.md</link>
+            <description>websocket-simple</description>
+            <pubDate>Fri, 29 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
             <title>nacl</title>
             <link>lab/websocket/nacl.md</link>
             <description>nacl</description>
             <pubDate>Fri, 29 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
-            <title>websocket-simple</title>
-            <link>lab/websocket/excercises/websocket-simple.md</link>
-            <description>websocket-simple</description>
-            <pubDate>Wed, 27 Aug 2025 00:00:00 GMT</pubDate>
-        </item>
-        <item>
-            <title>nginx</title>
-            <link>lab/nginx.md</link>
-            <description>nginx</description>
-            <pubDate>Tue, 26 Aug 2025 00:00:00 GMT</pubDate>
+            <title>simple-websocket</title>
+            <link>lab/websocket/simple-websocket.md</link>
+            <description>simple-websocket</description>
+            <pubDate>Fri, 29 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>combine</title>
             <link>lab/combine.md</link>
             <description>combine</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>nginx</title>
+            <link>lab/nginx.md</link>
+            <description>nginx</description>
+            <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>stree-visualization</title>
+            <link>lab/stree-visualization.md</link>
+            <description>stree-visualization</description>
             <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
@@ -96,40 +96,46 @@
             <pubDate>Mon, 25 Aug 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
-            <title>websocket-fsm</title>
-            <link>lab/websocket/fsm-based/websocket-fsm.md</link>
-            <description>websocket-fsm</description>
-            <pubDate>Fri, 18 Apr 2025 00:00:00 GMT</pubDate>
-        </item>
-        <item>
             <title>websocket-callback</title>
             <link>lab/websocket/callback-based/websocket-callback.md</link>
             <description>websocket-callback</description>
-            <pubDate>Wed, 16 Apr 2025 00:00:00 GMT</pubDate>
+            <pubDate>Sun, 04 May 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>websocket-basic</title>
             <link>lab/websocket/excercises/websocket-basic.md</link>
             <description>websocket-basic</description>
-            <pubDate>Fri, 11 Apr 2025 00:00:00 GMT</pubDate>
+            <pubDate>Sun, 04 May 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>websocket-fsm</title>
+            <link>lab/websocket/fsm-based/websocket-fsm.md</link>
+            <description>websocket-fsm</description>
+            <pubDate>Sun, 04 May 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>websocket-auth</title>
             <link>lab/websocket/protocol-based/websocket-auth.md</link>
             <description>websocket-auth</description>
-            <pubDate>Fri, 11 Apr 2025 00:00:00 GMT</pubDate>
+            <pubDate>Sun, 04 May 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>chat</title>
             <link>lab/chat.md</link>
             <description>chat</description>
-            <pubDate>Sun, 06 Apr 2025 00:00:00 GMT</pubDate>
+            <pubDate>Tue, 08 Apr 2025 00:00:00 GMT</pubDate>
         </item>
         <item>
             <title>stree</title>
             <link>lab/stree.md</link>
             <description>stree</description>
-            <pubDate>Sun, 06 Apr 2025 00:00:00 GMT</pubDate>
+            <pubDate>Tue, 08 Apr 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Event Loop Foundations</title>
+            <link>lab/event.md</link>
+            <description>Exploring call chain propagation, event loop mechanics, and reentrancy prevention in functional JavaScript applications</description>
+            <pubDate>Sat, 01 Feb 2025 00:00:00 GMT</pubDate>
         </item>
     </channel>
 </rss>
