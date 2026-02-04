@@ -291,22 +291,18 @@ class Reflector {
                 // Use the first hostname as default
                 const defaultContext = certContexts[this.config.hostnames[0].hostname];
 
-                // Log available hostnames at startup
-                log(`SNI: configured hostnames: [${Object.keys(certContexts).join(', ')}]`);
-
                 // Create HTTPS server with SNI callback for multi-hostname support
                 httpsServer = https.createServer({
                     ...defaultContext,
                     SNICallback: (servername, callback) => {
-                        log(`SNI: request for "${servername}"`);
-                        const availableHostnames = Object.keys(certContexts);
                         const context = certContexts[servername];
                         if (context) {
-                            log(`SNI: serving certificate for ${servername}`);
+                            if (this.DEBUG) debug(`SNI: serving certificate for ${servername}`);
                             callback(null, tls.createSecureContext(context));
                         } else {
                             // Log when falling back to default - this indicates a config mismatch
-                            log(`SNI: no certificate found for "${servername}", available hostnames: [${availableHostnames.join(', ')}]. Falling back to default (${this.config.hostnames[0].hostname})`);
+                            const availableHostnames = Object.keys(certContexts);
+                            log(`SNI: no certificate found for "${servername}", available: [${availableHostnames.join(', ')}]. Using default.`);
                             callback(null, tls.createSecureContext(defaultContext));
                         }
                     }

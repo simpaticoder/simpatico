@@ -11,11 +11,28 @@ The server supports multiple configuration methods with the following priority (
 3. **Configuration file** (JSON file, default: `./server.config.json`)
 4. **Default values**
 
-## File-Based Configuration
+## Production Configuration (Recommended)
 
-### Basic Usage (Single Hostname)
+For production deployments, use the ops scripts to manage your server config:
 
-Create a `server.config.json` file in your project root:
+1. **Create your production config:**
+   ```bash
+   cp ops/server.config.json.example ops/server.config.json
+   # Edit ops/server.config.json with your production settings
+   ```
+
+2. **Deploy the config to your server:**
+   ```bash
+   ./ops/sync-config.sh            # Sync config only
+   # or
+   ./ops/deploy-remote.sh          # Full deploy (includes config sync)
+   ```
+
+The `ops/server.config.json` file is gitignored, so your production secrets stay local.
+
+## Local Development Configuration
+
+For local development, create a `server.config.json` in the project root:
 
 ```json
 {

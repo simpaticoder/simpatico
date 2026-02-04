@@ -1,0 +1,22 @@
+{
+  "http": 80,
+  "https": 443,
+  "hostname": "simpatico.io",
+  "useTls": true,
+  "enableWebsockets": true,
+  "useCache": true,
+  "useGzip": true,
+  "logFileServerRequests": true,
+  "superCacheEnabled": false,
+  "debug": false,
+  "runAsUser": "simpatico",
+  "hostnames": [
+    {
+      "hostname": "simpatico.io",
+      "cert": "/etc/letsencrypt/live/simpatico.io/fullchain.pem",
+      "key": "/etc/letsencrypt/live/simpatico.io/privkey.pem",
+      "documentRoot": "/home/simpatico/simpatico"
+    }
+  ]
+}
+

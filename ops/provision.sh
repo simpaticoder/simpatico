@@ -236,7 +236,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/home/$SERVICE_USER/simpatico
-ExecStart=/usr/local/bin/node server.js '{"http":80,"https":443,"hostname":"$DOMAIN","useTls":true,"cert":"/etc/letsencrypt/live/$DOMAIN/fullchain.pem","key":"/etc/letsencrypt/live/$DOMAIN/privkey.pem","runAsUser":"$SERVICE_USER"}'
+ExecStart=/usr/local/bin/node server.js
 Restart=on-failure
 RestartSec=10
 

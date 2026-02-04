@@ -16,6 +16,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONF_FILE="${SCRIPT_DIR}/provision.conf"
+CONFIG_FILE="${SCRIPT_DIR}/server.config.json"
 
 # --- LOAD CONFIGURATION ---
 if [[ ! -f "$CONF_FILE" ]]; then
@@ -32,6 +33,13 @@ REPO_DIR="/home/$SERVICE_USER/simpatico"
 HOST="${1:-$DOMAIN}"
 
 echo "=== Deploying to $HOST ==="
+
+# --- SYNC CONFIG IF EXISTS ---
+if [[ -f "$CONFIG_FILE" ]]; then
+    echo "=== Syncing server config ==="
+    "$SCRIPT_DIR/sync-config.sh" "$HOST"
+    echo ""
+fi
 
 # The script to run on the remote server (runs with sudo)
 REMOTE_SCRIPT='
