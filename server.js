@@ -295,12 +295,14 @@ class Reflector {
                 httpsServer = https.createServer({
                     ...defaultContext,
                     SNICallback: (servername, callback) => {
-                        if (this.DEBUG) debug(`SNI request for: ${servername}`);
+                        const availableHostnames = Object.keys(certContexts);
                         const context = certContexts[servername];
                         if (context) {
+                            if (this.DEBUG) debug(`SNI: serving certificate for ${servername}`);
                             callback(null, tls.createSecureContext(context));
                         } else {
-                            // Fall back to default context
+                            // Log when falling back to default - this indicates a config mismatch
+                            log(`SNI: no certificate found for "${servername}", available hostnames: [${availableHostnames.join(', ')}]. Falling back to default (${this.config.hostnames[0].hostname})`);
                             callback(null, tls.createSecureContext(defaultContext));
                         }
                     }
