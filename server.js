@@ -793,6 +793,37 @@ class Reflector {
             watchPaths.push(this.config.documentRoot || watchRecursive);
         }
 
+        // Helper to get URL info (hostname and path) from absolute file path
+        const getUrlInfo = (filePath) => {
+            // Check multi-hostname mode first
+            if (this.config.hostnames && this.config.hostnames.length > 0) {
+                for (const hostConfig of this.config.hostnames) {
+                    if (hostConfig.documentRoot) {
+                        const absDocRoot = path.isAbsolute(hostConfig.documentRoot)
+                            ? hostConfig.documentRoot
+                            : path.join(process.cwd(), hostConfig.documentRoot);
+                        if (filePath.startsWith(absDocRoot)) {
+                            const protocol = this.config.useTls ? 'https' : 'http';
+                            const port = this.config.useTls ? this.config.https : this.config.http;
+                            const baseUrl = `${protocol}://${hostConfig.hostname}:${port}`;
+                            return {
+                                baseUrl,
+                                urlPath: path.relative(absDocRoot, filePath)
+                            };
+                        }
+                    }
+                }
+            }
+
+            // Single-hostname mode or fallback
+            const docRoot = this.config.documentRoot || process.cwd();
+            const absDocRoot = path.isAbsolute(docRoot) ? docRoot : path.join(process.cwd(), docRoot);
+            return {
+                baseUrl: this.config.baseUrl,
+                urlPath: path.relative(absDocRoot, filePath)
+            };
+        };
+
         chokidar.watch(watchPaths, {
             ignored: /(^|[\/\\])\..|node_modules/,
             persistent: true,
@@ -803,12 +834,15 @@ class Reflector {
                 const filePath = path.isAbsolute(fileName) ? fileName : process.cwd() + '/' + fileName;
                 delete this.cache[filePath];
 
+                // Get URL info for logging (hostname-aware)
+                const { baseUrl, urlPath } = getUrlInfo(filePath);
+
                 // Handle JS file changes
                 if (fileName.endsWith('.js')) {
-                    const mdFileName = fileName.replace('.js', '.md');
-                    log(`cache invalidated modified ${this.config.baseUrl}/${path.basename(mdFileName)} based on ${path.basename(fileName)}`);
+                    const mdUrlPath = urlPath.replace('.js', '.md');
+                    log(`cache invalidated modified ${baseUrl}/${mdUrlPath} based on ${urlPath}`);
                 } else {
-                    log(`cache invalidated modified ${this.config.baseUrl}/${path.basename(fileName)}`);
+                    log(`cache invalidated modified ${baseUrl}/${urlPath}`);
                 }
             })
             .on('unlink', fileName => {
@@ -818,7 +852,8 @@ class Reflector {
                 if (fileName.includes('/dist/angular/browser')) {
                     log(`cache invalidated replaced ${this.config.baseUrl}/angular `);
                 } else {
-                    log(`cache invalidated deleted ${filePath}`);
+                    const { baseUrl, urlPath } = getUrlInfo(filePath);
+                    log(`cache invalidated deleted ${baseUrl}/${urlPath}`);
                 }
 
             });
