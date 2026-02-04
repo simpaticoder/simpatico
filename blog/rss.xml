@@ -6,6 +6,12 @@
         <description>Making software, together</description>
         
         <item>
+            <title>Plans for Simpatico</title>
+            <link>blog/plans.md</link>
+            <description>Future directions - litmd improvements, multi-site hosting, and browser-to-browser social networking</description>
+            <pubDate>Fri, 30 Jan 2026 00:00:00 GMT</pubDate>
+        </item>
+        <item>
             <title>How the Blog System Works</title>
             <link>blog/blog.md</link>
             <description>The architecture of Simpatico's blog - posts as markdown, generated index and RSS</description>
