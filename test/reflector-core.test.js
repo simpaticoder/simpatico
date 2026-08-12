@@ -1,819 +1,857 @@
-// test/reflector-core.test.js
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import test from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
 
 import {
-    MIME_TYPES,
-    sha256,
-    isCompressedImage,
-    getCandidateFiles,
-    stripQuery,
-    hostnameFromRequest,
-    documentRootForHostname,
-    getPrimaryHostname,
-    getBaseUrl,
-    getContentTypeHeaders,
-    getCacheHeaders,
-    getSecurityHeaders,
-    getResponseHeaders,
-    buildRedirectUrl,
-    isValidAcmeToken,
-    getAcmeToken,
-    getAcmeFileName,
-    makeStatus,
-    parseJson,
-    castConfigValue,
-    mergeConfig,
-    buildMeasuredConfig,
-    buildLitmdConfig,
-    buildConfig,
-    getWatchPaths,
-    urlInfoForFile,
-    getLitmdConfigForRequest,
-    resolveFileName,
-    routeMessage,
-} from '../reflector-core.js';
+  MIME_TYPES,
+  DEFAULT_CONFIG,
+  sha256,
+  isCompressedImage,
+  getCandidateFiles,
+  hostnameFromRequest,
+  documentRootForRequest,
+  litmdConfigForRequest,
+  urlToFileName,
+  getContentTypeHeaders,
+  getCacheHeaders,
+  getCrossOriginHeaders,
+  getContentSecurityPolicyHeaders,
+  getResponseHeaders,
+  getRedirectUrl,
+  getAcmeToken,
+  getAcmeFileName,
+  getWatchPaths,
+  getFileUrlInfo,
+  makeStatus,
+  buildBaseUrl,
+  buildLitmdConfig,
+  mergeConfig,
+  makeCacheEntry,
+  replaceSubResourceLinks,
+} from "../reflector-core.js";
 
-test('MIME_TYPES contains common types', () => {
-    assert.equal(MIME_TYPES.html, 'text/html');
-    assert.equal(MIME_TYPES.js, 'application/javascript');
+// ================================================================
+// sha256
+// ================================================================
+
+test("sha256 returns a deterministic SHA-256 hash", () => {
+  assert.equal(
+    sha256("hello"),
+    "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+  );
 });
 
-test('sha256 produces deterministic hash', () => {
-    assert.equal(
-        sha256('hello'),
-        '2cf24dba5fb0a30e26e83b2ac5b9e29e' +
-        '1b161e5c1fa7425e73043362938b9824'
-    );
+test("sha256 accepts buffers", () => {
+  assert.equal(sha256(Buffer.from("hello")), sha256("hello"));
 });
 
-test('isCompressedImage recognizes compressed images', () => {
-    assert.equal(isCompressedImage('a.png'), true);
-    assert.equal(isCompressedImage('a.jpg'), true);
-    assert.equal(isCompressedImage('a.jpeg'), true);
-    assert.equal(isCompressedImage('a.gif'), true);
-    assert.equal(isCompressedImage('a.css'), false);
+// ================================================================
+// isCompressedImage
+// ================================================================
+
+test("isCompressedImage recognizes png", () => {
+  assert.equal(isCompressedImage("image.png"), true);
 });
 
-test('getCandidateFiles handles file paths', () => {
-    assert.deepEqual(
-        getCandidateFiles('/foo.js'),
-        ['/foo.js']
-    );
+test("isCompressedImage recognizes jpg", () => {
+  assert.equal(isCompressedImage("image.jpg"), true);
 });
 
-test('getCandidateFiles handles extensionless paths', () => {
-    assert.deepEqual(
-        getCandidateFiles('/foo'),
-        [
-            '/foo.md',
-            '/foo.html',
-            '/foo/index.md',
-            '/foo/index.html',
-            '/foo/README.md',
-        ]
-    );
+test("isCompressedImage recognizes jpeg", () => {
+  assert.equal(isCompressedImage("image.jpeg"), true);
 });
 
-test('getCandidateFiles handles directory paths', () => {
-    assert.deepEqual(
-        getCandidateFiles('/foo/'),
-        [
-            '/foo/index.md',
-            '/foo/index.html',
-            '/foo/README.md',
-        ]
-    );
+test("isCompressedImage recognizes gif", () => {
+  assert.equal(isCompressedImage("image.gif"), true);
 });
 
-test('getCandidateFiles handles Angular files', () => {
-    assert.deepEqual(
-        getCandidateFiles('/angular/main.js'),
-        [
-            '/lab/angular/dist/angular/browser/main.js',
-        ]
-    );
+test("isCompressedImage rejects non-image resources", () => {
+  assert.equal(isCompressedImage("index.html"), false);
+  assert.equal(isCompressedImage("script.js"), false);
+  assert.equal(isCompressedImage("image.webp"), false);
 });
 
-test('getCandidateFiles handles Angular SPA routes', () => {
-    assert.deepEqual(
-        getCandidateFiles('/angular/foo/bar'),
-        [
-            '/lab/angular/dist/angular/browser/index.html',
-        ]
-    );
+// ================================================================
+// getCandidateFiles
+// ================================================================
+
+test("getCandidateFiles rejects dot-prefixed path segments", () => {
+  assert.throws(
+    () => getCandidateFiles("/.git/config"),
+    (error) => error.code === 500,
+  );
 });
 
-test('getCandidateFiles rejects hidden path segments', () => {
-    assert.throws(
-        () => getCandidateFiles('/foo/.secret'),
-        error => error.code === 500
-    );
+test("getCandidateFiles returns direct path for files", () => {
+  assert.deepEqual(getCandidateFiles("/app.js"), ["/app.js"]);
 });
 
-test('stripQuery removes query string', () => {
-    assert.equal(
-        stripQuery('/foo.html?a=1'),
-        '/foo.html'
-    );
-
-    assert.equal(
-        stripQuery('/foo.html'),
-        '/foo.html'
-    );
+test("getCandidateFiles resolves directory paths", () => {
+  assert.deepEqual(getCandidateFiles("/docs"), [
+    "/docs.md",
+    "/docs.html",
+    "/docs/index.md",
+    "/docs/index.html",
+    "/docs/README.md",
+  ]);
 });
 
-test('hostnameFromRequest uses host header', () => {
-    assert.equal(
-        hostnameFromRequest(
-            { headers: { host: 'example.com:8080' } },
-            'localhost'
-        ),
-        'example.com'
-    );
+test("getCandidateFiles resolves trailing slash", () => {
+  assert.deepEqual(getCandidateFiles("/docs/"), [
+    "/docs/index.md",
+    "/docs/index.html",
+    "/docs/README.md",
+  ]);
 });
 
-test('hostnameFromRequest uses fallback', () => {
-    assert.equal(
-        hostnameFromRequest(
-            { headers: {} },
-            'localhost'
-        ),
-        'localhost'
-    );
+test("getCandidateFiles resolves Angular SPA routes", () => {
+  assert.deepEqual(getCandidateFiles("/angular/users/42"), [
+    "/lab/angular/dist/angular/browser/index.html",
+  ]);
 });
 
-test('documentRootForHostname selects matching host', () => {
-    const config = {
-        documentRoot: '/default',
-        hostnames: [
-            {
-                hostname: 'example.com',
-                documentRoot: '/example',
-            },
-        ],
-    };
-
-    assert.equal(
-        documentRootForHostname(
-            config,
-            'example.com'
-        ),
-        '/example'
-    );
-
-    assert.equal(
-        documentRootForHostname(
-            config,
-            'other.com'
-        ),
-        '/default'
-    );
+test("getCandidateFiles resolves Angular files directly", () => {
+  assert.deepEqual(getCandidateFiles("/angular/main.js"), [
+    "/lab/angular/dist/angular/browser/main.js",
+  ]);
 });
 
-test('getLitmdConfigForRequest applies hostname root', () => {
-    const config = {
-        hostname: 'localhost',
-        documentRoot: '/default',
-        hostnames: [
-            {
-                hostname: 'example.com',
-                documentRoot: '/example',
-            },
-        ],
-        litmd: {
-            baseUrl: 'http://localhost:8080',
-        },
-    };
+// ================================================================
+// hostnameFromRequest
+// ================================================================
 
-    assert.deepEqual(
-        getLitmdConfigForRequest(
-            config,
-            {
-                headers: {
-                    host: 'example.com:8080',
-                },
-            }
-        ),
-        {
-            baseUrl: 'http://localhost:8080',
-            hostname: 'example.com',
-            documentRoot: '/example',
-        }
-    );
+test("hostnameFromRequest removes port", () => {
+  const request = {
+    headers: {
+      host: "example.com:8080",
+    },
+  };
+
+  assert.equal(hostnameFromRequest(request, "localhost"), "example.com");
 });
 
-test('getPrimaryHostname uses first configured hostname', () => {
-    assert.equal(
-        getPrimaryHostname({
-            hostname: 'localhost',
-            hostnames: [
-                { hostname: 'example.com' },
-            ],
-        }),
-        'example.com'
-    );
+test("hostnameFromRequest uses fallback hostname", () => {
+  assert.equal(hostnameFromRequest({}, "localhost"), "localhost");
 });
 
-test('getPrimaryHostname uses normal hostname', () => {
-    assert.equal(
-        getPrimaryHostname({
-            hostname: 'localhost',
-            hostnames: null,
-        }),
-        'localhost'
-    );
+test("hostnameFromRequest handles IPv4-style host with port", () => {
+  const request = {
+    headers: {
+      host: "127.0.0.1:8080",
+    },
+  };
+
+  assert.equal(hostnameFromRequest(request, "localhost"), "127.0.0.1");
 });
 
-test('getBaseUrl builds HTTP URL', () => {
-    assert.equal(
-        getBaseUrl({
-            hostname: 'example.com',
-            hostnames: null,
-            useTls: false,
-            http: 8080,
-        }),
-        'http://example.com:8080'
-    );
+// ================================================================
+// documentRootForRequest
+// ================================================================
+
+test("documentRootForRequest uses default document root", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    hostname: "localhost",
+    hostnames: null,
+  };
+
+  assert.equal(documentRootForRequest(config, null), "/srv/site");
 });
 
-test('getBaseUrl omits default HTTP port', () => {
-    assert.equal(
-        getBaseUrl({
-            hostname: 'example.com',
-            hostnames: null,
-            useTls: false,
-            http: 80,
-        }),
-        'http://example.com'
-    );
+test("documentRootForRequest selects hostname-specific root", () => {
+  const config = {
+    documentRoot: "/srv/default",
+    hostname: "localhost",
+    hostnames: [
+      {
+        hostname: "one.example",
+        documentRoot: "/srv/one",
+      },
+      {
+        hostname: "two.example",
+        documentRoot: "/srv/two",
+      },
+    ],
+  };
+
+  const request = {
+    headers: {
+      host: "two.example:8443",
+    },
+  };
+
+  assert.equal(documentRootForRequest(config, request), "/srv/two");
 });
 
-test('getBaseUrl builds HTTPS URL', () => {
-    assert.equal(
-        getBaseUrl({
-            hostname: 'example.com',
-            hostnames: null,
-            useTls: true,
-            https: 8443,
-        }),
-        'https://example.com:8443'
-    );
+test("documentRootForRequest falls back when hostname is unknown", () => {
+  const config = {
+    documentRoot: "/srv/default",
+    hostname: "localhost",
+    hostnames: [
+      {
+        hostname: "one.example",
+        documentRoot: "/srv/one",
+      },
+    ],
+  };
+
+  const request = {
+    headers: {
+      host: "unknown.example",
+    },
+  };
+
+  assert.equal(documentRootForRequest(config, request), "/srv/default");
 });
 
-test('getContentTypeHeaders determines MIME type', () => {
-    assert.deepEqual(
-        getContentTypeHeaders(
-            '/foo.js',
-            { useGzip: true }
-        ),
-        {
-            'Content-Type':
-                'application/javascript',
-            'Content-Encoding': 'gzip',
-        }
-    );
+// ================================================================
+// litmdConfigForRequest
+// ================================================================
+
+test("litmdConfigForRequest preserves base configuration", () => {
+  const config = {
+    hostname: "localhost",
+    documentRoot: "/srv/site",
+    hostnames: null,
+    litmd: {
+      baseUrl: "http://localhost:8080",
+      author: "test",
+    },
+  };
+
+  assert.deepEqual(litmdConfigForRequest(config), {
+    baseUrl: "http://localhost:8080",
+    author: "test",
+    hostname: "localhost",
+    documentRoot: "/srv/site",
+  });
 });
 
-test('getContentTypeHeaders disables gzip for images', () => {
-    assert.equal(
-        getContentTypeHeaders(
-            '/foo.png',
-            { useGzip: true }
-        )['Content-Encoding'],
-        ''
-    );
+test("litmdConfigForRequest selects hostname configuration", () => {
+  const config = {
+    hostname: "localhost",
+    documentRoot: "/srv/default",
+    hostnames: [
+      {
+        hostname: "example.com",
+        documentRoot: "/srv/example",
+      },
+    ],
+    litmd: {
+      baseUrl: "https://example.com",
+    },
+  };
+
+  const request = {
+    headers: {
+      host: "example.com:443",
+    },
+  };
+
+  assert.deepEqual(litmdConfigForRequest(config, request), {
+    baseUrl: "https://example.com",
+    hostname: "example.com",
+    documentRoot: "/srv/example",
+  });
 });
 
-test('getCacheHeaders produces ETag', () => {
-    const headers = getCacheHeaders(
-        '/foo.js',
-        Buffer.from('hello'),
-        {
-            superCacheEnabled: false,
-        }
-    );
+// ================================================================
+// urlToFileName
+// ================================================================
 
-    assert.equal(
-        headers.ETag,
-        sha256(Buffer.from('hello'))
-    );
+test("urlToFileName returns the first existing candidate", () => {
+  const existing = new Set(["/srv/site/docs.html"]);
 
-    assert.equal(
-        headers['Cache-Control'],
-        'no-cache'
-    );
+  const config = {
+    documentRoot: "/srv/site",
+    hostname: "localhost",
+    hostnames: null,
+  };
+
+  assert.equal(
+    urlToFileName({
+      url: "/docs",
+      config,
+      existsSync: (file) => existing.has(file),
+    }),
+    "/srv/site/docs.html",
+  );
 });
 
-test('getCacheHeaders enables immutable cache for subresources', () => {
-    assert.equal(
-        getCacheHeaders(
-            '/foo.js',
-            'hello',
-            { superCacheEnabled: true }
-        )['Cache-Control'],
-        'public, max-age=31536000, immutable'
-    );
+test("urlToFileName strips query parameters", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    hostname: "localhost",
+    hostnames: null,
+  };
+
+  assert.equal(
+    urlToFileName({
+      url: "/app.js?version=123",
+      config,
+      existsSync: (file) => file === "/srv/site/app.js",
+    }),
+    "/srv/site/app.js",
+  );
 });
 
-test('getCacheHeaders does not immutable-cache HTML', () => {
-    assert.equal(
-        getCacheHeaders(
-            '/foo.html',
-            'hello',
-            { superCacheEnabled: true }
-        )['Cache-Control'],
-        'no-cache'
-    );
+test("urlToFileName throws 404 when no candidate exists", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    hostname: "localhost",
+    hostnames: null,
+  };
+
+  assert.throws(
+    () =>
+      urlToFileName({
+        url: "/missing",
+        config,
+        existsSync: () => false,
+      }),
+    (error) => {
+      assert.equal(error.code, 404);
+      assert.deepEqual(error.candidates, [
+        "/missing.md",
+        "/missing.html",
+        "/missing/index.md",
+        "/missing/index.html",
+        "/missing/README.md",
+      ]);
+      return true;
+    },
+  );
 });
 
-test('getSecurityHeaders returns isolation and CSP headers', () => {
-    const headers = getSecurityHeaders();
+// ================================================================
+// getContentTypeHeaders
+// ================================================================
 
-    assert.equal(
-        headers['Cross-Origin-Opener-Policy'],
-        'same-origin'
-    );
-
-    assert.match(
-        headers['Content-Security-Policy'],
-        /default-src 'self'/
-    );
+test("getContentTypeHeaders returns MIME type", () => {
+  assert.deepEqual(getContentTypeHeaders("app.js", { useGzip: false }), {
+    "Content-Type": "application/javascript",
+    "Content-Encoding": "",
+  });
 });
 
-test('getResponseHeaders combines all headers', () => {
-    const headers = getResponseHeaders(
-        '/foo.js',
-        'hello',
-        {
-            useGzip: true,
-            superCacheEnabled: false,
-        }
-    );
-
-    assert.equal(
-        headers['Content-Type'],
-        'application/javascript'
-    );
-
-    assert.ok(headers.ETag);
-    assert.ok(headers['Content-Security-Policy']);
+test("getContentTypeHeaders enables gzip for compressible files", () => {
+  assert.equal(
+    getContentTypeHeaders("app.js", { useGzip: true })["Content-Encoding"],
+    "gzip",
+  );
 });
 
-test('buildRedirectUrl builds HTTPS redirect', () => {
-    assert.equal(
-        buildRedirectUrl({
-            hostname: 'example.com',
-            port: 8443,
-            url: '/foo',
-        }),
-        'https://example.com:8443/foo'
-    );
+test("getContentTypeHeaders disables gzip for compressed images", () => {
+  assert.equal(
+    getContentTypeHeaders("image.png", { useGzip: true })["Content-Encoding"],
+    "",
+  );
 });
 
-test('buildRedirectUrl omits HTTPS default port', () => {
-    assert.equal(
-        buildRedirectUrl({
-            hostname: 'example.com',
-            port: 443,
-            url: '/foo',
-        }),
-        'https://example.com/foo'
-    );
+test("getContentTypeHeaders falls back to text", () => {
+  assert.equal(
+    getContentTypeHeaders("unknown.xyz", { useGzip: false })["Content-Type"],
+    "text",
+  );
 });
 
-test('isValidAcmeToken accepts valid token', () => {
-    assert.equal(
-        isValidAcmeToken('abc-123_XYZ'),
-        true
-    );
+// ================================================================
+// getCacheHeaders
+// ================================================================
+
+test("getCacheHeaders always produces an ETag", () => {
+  const data = Buffer.from("hello");
+
+  const headers = getCacheHeaders("index.html", data);
+
+  assert.equal(headers.ETag, sha256(data));
 });
 
-test('isValidAcmeToken rejects invalid token', () => {
-    assert.equal(
-        isValidAcmeToken('abc/123'),
-        false
-    );
+test("getCacheHeaders disables caching for HTML", () => {
+  const headers = getCacheHeaders("index.html", "hello", {
+    superCacheEnabled: true,
+  });
+
+  assert.equal(headers["Cache-Control"], "no-cache");
 });
 
-test('getAcmeToken extracts token', () => {
-    assert.equal(
-        getAcmeToken(
-            '/.well-known/acme-challenge/abc123'
-        ),
-        'abc123'
-    );
+test("getCacheHeaders disables caching for Markdown", () => {
+  const headers = getCacheHeaders("index.md", "hello", {
+    superCacheEnabled: true,
+  });
+
+  assert.equal(headers["Cache-Control"], "no-cache");
 });
 
-test('getAcmeFileName combines cwd and URL', () => {
-    assert.equal(
-        getAcmeFileName(
-            '/srv/site',
-            '/.well-known/acme-challenge/a'
-        ),
-        '/srv/site/.well-known/acme-challenge/a'
-    );
+test("getCacheHeaders enables immutable caching for subresources", () => {
+  const headers = getCacheHeaders("app.js", "hello", {
+    superCacheEnabled: true,
+  });
+
+  assert.equal(headers["Cache-Control"], "public, max-age=31536000, immutable");
 });
 
-test('makeStatus formats memory sizes', () => {
-    const status = makeStatus({
-        gitCommit: 'abc123',
-        nodeVersion: 'v24',
-        platform: 'linux',
-        arch: 'x64',
-        uptime: 123.9,
-        started: 'today',
-        memory: {
-            rss: 10 * 1024 * 1024,
-            heapUsed: 20 * 1024 * 1024,
-            heapTotal: 30 * 1024 * 1024,
-        },
-        hostname: 'localhost',
-        version: '1.0.0',
-    });
+// ================================================================
+// Static headers
+// ================================================================
 
-    assert.deepEqual(status, {
-        git: 'abc123',
-        node: 'v24',
-        platform: 'linux',
-        arch: 'x64',
-        uptime: 123,
-        started: 'today',
-        memory: {
-            rss: '10 MB',
-            heapUsed: '20 MB',
-            heapTotal: '30 MB',
-        },
-        hostname: 'localhost',
-        version: '1.0.0',
-    });
+test("getCrossOriginHeaders returns required isolation headers", () => {
+  assert.deepEqual(getCrossOriginHeaders(), {
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Embedder-Policy": "require-corp",
+  });
 });
 
-test('parseJson parses valid JSON', () => {
-    assert.deepEqual(
-        parseJson('{"a":1}', {}),
-        { a: 1 }
-    );
+test("getContentSecurityPolicyHeaders returns CSP", () => {
+  const headers = getContentSecurityPolicyHeaders();
+
+  assert.match(headers["Content-Security-Policy"], /default-src 'self'/);
+
+  assert.match(headers["Content-Security-Policy"], /script-src/);
 });
 
-test('parseJson returns fallback for invalid JSON', () => {
-    assert.deepEqual(
-        parseJson('{', { fallback: true }),
-        { fallback: true }
-    );
+test("getResponseHeaders combines all response headers", () => {
+  const headers = getResponseHeaders("app.js", "hello", {
+    useGzip: true,
+    superCacheEnabled: false,
+  });
+
+  assert.equal(headers["Content-Type"], "application/javascript");
+
+  assert.equal(headers["Content-Encoding"], "gzip");
+
+  assert.equal(headers["Cross-Origin-Opener-Policy"], "same-origin");
+
+  assert.ok(headers.ETag);
+  assert.ok(headers["Content-Security-Policy"]);
 });
 
-test('castConfigValue converts numeric environment values', () => {
-    assert.equal(
-        castConfigValue(8080, '9090'),
-        9090
-    );
+// ================================================================
+// Redirect / ACME
+// ================================================================
+
+test("getRedirectUrl preserves requested hostname", () => {
+  const config = {
+    hostname: "fallback.example",
+    https: 8443,
+  };
+
+  const request = {
+    url: "/hello",
+    headers: {
+      host: "example.com:8080",
+    },
+  };
+
+  assert.equal(
+    getRedirectUrl(request, config),
+    "https://example.com:8443/hello",
+  );
 });
 
-test('castConfigValue converts boolean environment values', () => {
-    assert.equal(
-        castConfigValue(true, 'false'),
-        false
-    );
+test("getRedirectUrl omits standard HTTPS port", () => {
+  const config = {
+    hostname: "localhost",
+    https: 443,
+  };
+
+  const request = {
+    url: "/hello",
+    headers: {
+      host: "example.com",
+    },
+  };
+
+  assert.equal(getRedirectUrl(request, config), "https://example.com/hello");
 });
 
-test('castConfigValue preserves undefined values', () => {
-    assert.equal(
-        castConfigValue(123, undefined),
-        123
-    );
+test("getAcmeToken accepts valid tokens", () => {
+  assert.equal(getAcmeToken("/.well-known/acme-challenge/abc_123"), "abc_123");
 });
 
-test('castConfigValue accepts replacement values', () => {
-    assert.equal(
-        castConfigValue('old', 'new'),
-        'new'
-    );
+test("getAcmeToken rejects invalid tokens", () => {
+  assert.throws(
+    () => getAcmeToken("/.well-known/acme-challenge/a.b"),
+    /Invalid ACME challenge token/,
+  );
 });
 
-test('mergeConfig respects source priority', () => {
-    assert.deepEqual(
-        mergeConfig(
-            { port: 1, debug: false },
-            { port: 2 },
-            { port: '3', debug: 'true' }
-        ),
-        {
-            port: 3,
-            debug: true,
-        }
-    );
+test("getAcmeFileName builds path from cwd", () => {
+  assert.equal(
+    getAcmeFileName("/.well-known/acme-challenge/token", "/srv/site"),
+    "/srv/site/.well-known/acme-challenge/token",
+  );
 });
 
-test('buildMeasuredConfig creates measured information', () => {
-    assert.deepEqual(
-        buildMeasuredConfig({
-            packageJson: {
-                name: 'demo',
-                version: '1.2.3',
-            },
-            argv: ['node', 'server'],
-            cwd: '/tmp',
-            started: 'today',
-        }),
-        {
-            measured: {
-                name: 'demo',
-                version: '1.2.3',
-                args: ['node', 'server'],
-                cwd: '/tmp',
-                started: 'today',
-            },
-        }
-    );
+// ================================================================
+// Watch paths
+// ================================================================
+
+test("getWatchPaths uses document root in single-host mode", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    hostnames: null,
+  };
+
+  assert.deepEqual(getWatchPaths(config), ["/srv/site"]);
 });
 
-test('buildLitmdConfig creates litmd configuration', () => {
-    const config = {
-        hostname: 'example.com',
-        hostnames: null,
-        http: 8080,
-        useTls: false,
-        measured: {
-            name: 'Alice',
-        },
-    };
+test("getWatchPaths uses hostname document roots", () => {
+  const config = {
+    documentRoot: "/srv/default",
+    hostnames: [
+      {
+        hostname: "one.example",
+        documentRoot: "/srv/one",
+      },
+      {
+        hostname: "two.example",
+        documentRoot: "/srv/two",
+      },
+    ],
+  };
 
-    assert.deepEqual(
-        buildLitmdConfig(
-            config,
-            new Date('2026-01-01')
-        ),
-        {
-            hostname: 'example.com',
-            specialPathPrefix: '/',
-            baseUrl: 'http://example.com:8080',
-            author: 'Alice',
-            keywords:
-                'es6, minimalist, vanillajs, notebook',
-            copyrightHolder: 'Alice',
-            copyrightYear: 2026,
-        }
-    );
+  assert.deepEqual(getWatchPaths(config), ["/srv/one", "/srv/two"]);
 });
 
-test('buildConfig combines configuration sources', () => {
-    const config = buildConfig({
-        defaults: {
-            hostname: 'localhost',
-            http: 8080,
-            useTls: false,
-            configFile: './server.json',
-            hostnames: null,
-        },
-        fileConfig: {
-            http: 9000,
-        },
-        env: {
-            SIMP_HTTP: '9100',
-        },
-        argv: [
-            'node',
-            'server',
-            '{"http":9200}',
-        ],
-        packageJson: {
-            name: 'demo',
-            version: '1',
-        },
-        cwd: '/tmp',
-        started: 'today',
-        now: new Date('2026-01-01'),
-    });
+test("getWatchPaths falls back when hostname roots are absent", () => {
+  const config = {
+    hostnames: [
+      {
+        hostname: "one.example",
+      },
+    ],
+  };
 
-    assert.equal(config.http, 9200);
-    assert.equal(
-        config.baseUrl,
-        'http://localhost:9200'
-    );
-    assert.equal(
-        config.litmd.author,
-        'demo'
-    );
+  assert.deepEqual(getWatchPaths(config, "/fallback"), ["/fallback"]);
 });
 
-test('getWatchPaths uses all hostname roots', () => {
-    assert.deepEqual(
-        getWatchPaths({
-            documentRoot: '/default',
-            hostnames: [
-                { documentRoot: '/one' },
-                { documentRoot: '/two' },
-            ],
-        }),
-        ['/one', '/two']
-    );
+// ================================================================
+// getFileUrlInfo
+// ================================================================
+
+test("getFileUrlInfo handles single-host mode", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    baseUrl: "http://localhost:8080",
+    hostnames: null,
+  };
+
+  assert.deepEqual(getFileUrlInfo("/srv/site/index.html", config, "/srv"), {
+    baseUrl: "http://localhost:8080",
+    urlPath: "index.html",
+  });
 });
 
-test('getWatchPaths falls back when roots are absent', () => {
-    assert.deepEqual(
-        getWatchPaths(
-            {
-                hostnames: [
-                    { hostname: 'one' },
-                ],
-            },
-            '.'
-        ),
-        ['.']
-    );
+test("getFileUrlInfo identifies hostname-specific root", () => {
+  const config = {
+    useTls: true,
+    https: 8443,
+    documentRoot: "/srv/default",
+    baseUrl: "https://default.example:8443",
+    hostnames: [
+      {
+        hostname: "example.com",
+        documentRoot: "/srv/example",
+      },
+    ],
+  };
+
+  assert.deepEqual(getFileUrlInfo("/srv/example/app.js", config, "/srv"), {
+    baseUrl: "https://example.com:8443",
+    urlPath: "app.js",
+  });
 });
 
-test('urlInfoForFile resolves multi-hostname root', () => {
-    const result = urlInfoForFile({
-        filePath: '/sites/example/foo.md',
-        cwd: '/sites',
-        config: {
-            useTls: false,
-            http: 8080,
-            baseUrl: 'http://localhost:8080',
-            documentRoot: '/default',
-            hostnames: [
-                {
-                    hostname: 'example.com',
-                    documentRoot: '/sites/example',
-                },
-            ],
-        },
-    });
+// ================================================================
+// makeStatus
+// ================================================================
 
-    assert.deepEqual(result, {
-        baseUrl: 'http://example.com:8080',
-        urlPath: 'foo.md',
-    });
+test("makeStatus builds runtime status", () => {
+  const config = {
+    hostname: "example.com",
+    measured: {
+      started: "Tue, 11 Aug 2026 00:00:00 GMT",
+      version: "1.2.3",
+    },
+  };
+
+  const runtime = {
+    gitCommit: "abc1234",
+    version: "v24.0.0",
+    platform: "linux",
+    arch: "x64",
+    uptime: () => 12.8,
+    memoryUsage: () => ({
+      rss: 10 * 1024 * 1024,
+      heapUsed: 5 * 1024 * 1024,
+      heapTotal: 8 * 1024 * 1024,
+    }),
+  };
+
+  assert.deepEqual(makeStatus(config, runtime), {
+    git: "abc1234",
+    node: "v24.0.0",
+    platform: "linux",
+    arch: "x64",
+    uptime: 12,
+    started: "Tue, 11 Aug 2026 00:00:00 GMT",
+    memory: {
+      rss: "10 MB",
+      heapUsed: "5 MB",
+      heapTotal: "8 MB",
+    },
+    hostname: "example.com",
+    version: "1.2.3",
+  });
 });
 
-test('resolveFileName returns first existing candidate', () => {
-    const result = resolveFileName({
-        urlPath: '/foo',
-        documentRoot: '/site',
-        existsSync: file =>
-            file === '/site/foo.html',
-    });
+// ================================================================
+// buildBaseUrl
+// ================================================================
 
-    assert.equal(result, '/site/foo.html');
+test("buildBaseUrl builds HTTP URL", () => {
+  assert.equal(
+    buildBaseUrl({
+      hostname: "example.com",
+      http: 8080,
+      https: 8443,
+      useTls: false,
+      hostnames: null,
+    }),
+    "http://example.com:8080",
+  );
 });
 
-test('resolveFileName throws 404 when no candidate exists', () => {
-    assert.throws(
-        () => resolveFileName({
-            urlPath: '/foo',
-            documentRoot: '/site',
-            existsSync: () => false,
-        }),
-        error => {
-            assert.equal(error.code, 404);
-            assert.deepEqual(error.candidates, [
-                '/foo.md',
-                '/foo.html',
-                '/foo/index.md',
-                '/foo/index.html',
-                '/foo/README.md',
-            ]);
-            return true;
-        }
-    );
+test("buildBaseUrl omits HTTP port 80", () => {
+  assert.equal(
+    buildBaseUrl({
+      hostname: "example.com",
+      http: 80,
+      https: 8443,
+      useTls: false,
+      hostnames: null,
+    }),
+    "http://example.com",
+  );
 });
 
-test('routeMessage rejects unknown sender', () => {
-    const socket = {};
-
-    const action = routeMessage(
-        {
-            from: 'A',
-            to: 'B',
-            type: 'MESSAGE',
-            message: 'hello',
-        },
-        socket,
-        {}
-    );
-
-    assert.equal(action.type, 'send');
-    assert.equal(
-        action.message.error,
-        'SOCKET_NOT_REGISTERED'
-    );
+test("buildBaseUrl builds HTTPS URL", () => {
+  assert.equal(
+    buildBaseUrl({
+      hostname: "example.com",
+      http: 8080,
+      https: 8443,
+      useTls: true,
+      hostnames: null,
+    }),
+    "https://example.com:8443",
+  );
 });
 
-test('routeMessage rejects mismatched socket', () => {
-    const registered = {};
-    const actual = {};
-
-    const action = routeMessage(
-        {
-            from: 'A',
-            to: 'B',
-            type: 'MESSAGE',
-            message: 'hello',
-        },
-        actual,
-        { A: registered }
-    );
-
-    assert.equal(
-        action.message.error,
-        'MISMATCHED_SOCKET_PUBLIC_KEY'
-    );
+test("buildBaseUrl uses first hostname in multi-host mode", () => {
+  assert.equal(
+    buildBaseUrl({
+      hostname: "fallback.example",
+      http: 8080,
+      https: 443,
+      useTls: true,
+      hostnames: [
+        { hostname: "first.example" },
+        { hostname: "second.example" },
+      ],
+    }),
+    "https://first.example",
+  );
 });
 
-test('routeMessage rejects missing content', () => {
-    const socket = {};
+// ================================================================
+// buildLitmdConfig
+// ================================================================
 
-    const action = routeMessage(
-        {
-            from: 'A',
-            to: 'B',
-            type: 'MESSAGE',
-        },
-        socket,
-        { A: socket }
-    );
+test("buildLitmdConfig creates litmd configuration", () => {
+  const config = {
+    hostname: "example.com",
+    baseUrl: "https://example.com",
+    hostnames: null,
+  };
 
-    assert.equal(
-        action.message.error,
-        'MISSING_CONTENT_FIELD'
-    );
+  const packageJson = {
+    name: "my-project",
+  };
+
+  const now = new Date("2026-08-11T00:00:00Z");
+
+  assert.deepEqual(buildLitmdConfig(config, packageJson, now), {
+    hostname: "example.com",
+    specialPathPrefix: "/",
+    baseUrl: "https://example.com",
+    author: "my-project",
+    keywords: "es6, minimalist, vanillajs, notebook",
+    copyrightHolder: "my-project",
+    copyrightYear: 2026,
+  });
 });
 
-test('routeMessage rejects incorrect message type', () => {
-    const socket = {};
+// ================================================================
+// mergeConfig
+// ================================================================
 
-    const action = routeMessage(
-        {
-            from: 'A',
-            to: 'B',
-            type: 'OTHER',
-            message: 'hello',
-        },
-        socket,
-        { A: socket }
-    );
+test("mergeConfig gives later configuration sources priority", () => {
+  const combine = (objects, resolver) => {
+    const result = {};
 
-    assert.equal(
-        action.message.error,
-        'MISSING_TYPE_MESSAGE'
-    );
+    for (const object of objects) {
+      for (const [key, value] of Object.entries(object)) {
+        if (value === undefined) continue;
+
+        const previous = result[key];
+
+        result[key] =
+          previous === undefined ? value : (resolver(previous, value) ?? value);
+      }
+    }
+
+    return result;
+  };
+
+  assert.deepEqual(
+    mergeConfig(
+      { port: 8080 },
+      { port: 9000 },
+      { port: "9001" },
+      { port: 9002 },
+      {},
+      combine,
+    ),
+    {
+      port: 9002,
+    },
+  );
 });
 
-test('routeMessage rejects unavailable recipient', () => {
-    const socket = {};
+test("mergeConfig casts numeric environment values", () => {
+  const combine = (objects, resolver) => {
+    let result = {};
 
-    const action = routeMessage(
-        {
-            from: 'A',
-            to: 'B',
-            type: 'MESSAGE',
-            message: {
-                text: 'hello',
-            },
-        },
-        socket,
-        { A: socket }
-    );
+    for (const object of objects) {
+      for (const [key, value] of Object.entries(object)) {
+        if (value === undefined) continue;
 
-    assert.equal(
-        action.message.error,
-        'RECIPIENT_NOT_AVAILABLE'
-    );
+        const previous = result[key];
+
+        result = {
+          ...result,
+          [key]:
+            previous === undefined
+              ? value
+              : (resolver(previous, value) ?? value),
+        };
+      }
+    }
+
+    return result;
+  };
+
+  assert.equal(
+    mergeConfig({ port: 8080 }, {}, { port: "9000" }, {}, {}, combine).port,
+    9000,
+  );
 });
 
-test('routeMessage delivers valid messages', () => {
-    const sender = {};
-    const recipient = {};
+test("mergeConfig casts boolean environment values", () => {
+  const combine = (objects, resolver) => {
+    const result = {};
 
-    const action = routeMessage(
-        {
-            from: 'A',
-            to: 'B',
-            type: 'MESSAGE',
-            message: {
-                text: 'hello',
-            },
-        },
-        sender,
-        {
-            A: sender,
-            B: recipient,
-        }
-    );
+    for (const object of objects) {
+      for (const [key, value] of Object.entries(object)) {
+        if (value === undefined) continue;
 
-    assert.equal(action.type, 'deliver');
-    assert.equal(action.recipient, recipient);
-    assert.deepEqual(action.message, {
-        text: 'hello',
-    });
+        result[key] =
+          result[key] === undefined
+            ? value
+            : (resolver(result[key], value) ?? value);
+      }
+    }
 
-    assert.deepEqual(
-        action.confirmation.message,
-        {
-            text: 'hello',
-            type: 'MESSAGE_DELIVERED',
-        }
-    );
+    return result;
+  };
+
+  assert.equal(
+    mergeConfig({ debug: false }, {}, { debug: "true" }, {}, {}, combine).debug,
+    true,
+  );
+});
+
+// ================================================================
+// makeCacheEntry
+// ================================================================
+
+test("makeCacheEntry creates data and hash", () => {
+  const entry = makeCacheEntry("hello");
+
+  assert.equal(entry.data, "hello");
+  assert.equal(entry.hash, sha256("hello"));
+});
+
+test("makeCacheEntry accepts an explicit hash", () => {
+  assert.deepEqual(makeCacheEntry("hello", "abc"), {
+    data: "hello",
+    hash: "abc",
+  });
+});
+
+// ================================================================
+// replaceSubResourceLinks
+// ================================================================
+
+test("replaceSubResourceLinks ignores non-document resources", () => {
+  assert.equal(
+    replaceSubResourceLinks(
+      "hello",
+      () => ({
+        hash: "abc",
+      }),
+      "script.js",
+    ),
+    "hello",
+  );
+});
+
+test("replaceSubResourceLinks replaces resource placeholders", () => {
+  const html = `<script src="/app.js?###"></script>`;
+
+  const result = replaceSubResourceLinks(
+    html,
+    (resource) => {
+      assert.equal(resource, "/app.js");
+
+      return {
+        hash: "deadbeef",
+      };
+    },
+    "index.html",
+  );
+
+  assert.equal(result, `<script src="/app.js?deadbeef"></script>`);
+});
+
+// ================================================================
+// Constants
+// ================================================================
+
+test("MIME_TYPES contains expected common types", () => {
+  assert.equal(MIME_TYPES.html, "text/html");
+
+  assert.equal(MIME_TYPES.js, "application/javascript");
+
+  assert.equal(MIME_TYPES.json, "application/json");
+});
+
+test("DEFAULT_CONFIG contains expected defaults", () => {
+  assert.equal(DEFAULT_CONFIG.http, 8080);
+  assert.equal(DEFAULT_CONFIG.https, 8443);
+  assert.equal(DEFAULT_CONFIG.hostname, "localhost");
+  assert.equal(DEFAULT_CONFIG.useTls, false);
+  assert.equal(DEFAULT_CONFIG.useCache, true);
 });
