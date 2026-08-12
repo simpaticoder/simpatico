@@ -1,4 +1,5 @@
-import {svg, log, tryToStringify} from '/lib/simpatico.js';
+import {log, tryToStringify} from '/lib/simpatico.js';
+import * as svg from '/lib/svg.js';
 
 const html1 = (
   svgClass='visualize-stree',

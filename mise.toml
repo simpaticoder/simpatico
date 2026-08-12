@@ -1,6 +1,6 @@
 [tools]
-node = "24"
-pnpm = "10.28"
+node = "26"
+pnpm = "latest"
 
 [tasks]
 build="pnpm install && pnpm run start"

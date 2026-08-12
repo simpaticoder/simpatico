@@ -1,7 +1,7 @@
 # STree
 2024
 
-An n-arry tree that associates a reduction-from-root (called 'residue') with each node. Allows visualizable multiverse programming.
+An n-arry tree that associates a reduction-from-root (called 'residue') with each node.  Allows visualizable multiverse programming.
 
 See [combine](/combine.md)
 
@@ -27,7 +27,8 @@ Here is a simple example of what we're making, an stree with arithmetic handlers
 ```
 ```js
 import {arithmeticOps} from "./stree-examples.js";
-import {stree, svg} from '../lib/simpatico.js';
+import {stree} from '/lib/simpatico.js';
+import * as svg from '/lib/svg.js';
 import {renderStree} from './stree-visualization.js';
 
 const arithParent = svg.elt('arithmetic-render');
@@ -79,8 +80,9 @@ function nodePath(node){
  * @returns {*}
  */
 function residue(node, reduce){
-  // reduceRight effectively reverses the nodePath to start at root and end at the node
-  return nodePath(node).map(node => node.value).reduce(reduce, root.value);
+  return nodePath(node)
+      .map(node => node.value)
+      .reduce(reduce, root.value);
 }
 
 //test over some integers
@@ -106,7 +108,7 @@ Otherwise we add `node` to `branches`.
 To keep this state local, we wrap the operations in another function, called `stree3`:
 
 ```js
-import {combineReducer} from '../lib/combine.js';
+import {combineReducer} from '/lib/combine.js';
 
 function stree3(rootValue, reducer = combineReducer) {
   const root = {value: rootValue};
@@ -206,7 +208,8 @@ In normal operation `handlers` should never call stree functions themselves, dir
 ```
 
 ```js
-import {stree, h, svg} from '../lib/simpatico.js';
+import {stree, h} from '/lib/simpatico.js';
+import * as svg from '/lib/svg.js';
 import {renderStree} from './stree-visualization.js';
 
 const reentranceParent = svg.elt('reentrance-render');
@@ -273,8 +276,8 @@ This contract prohibits the `value`s themselves from being arrays or strings.
 * Concern: we can serialize functions, but not their dependencies. this puts a hard limit on what you can do in handler functions
 
 ```js
-import {stringifyWithFunctions, parseWithFunctions, peek} from "../lib/core.js";
-import {combineReducer} from '../lib/combine.js';
+import {stringifyWithFunctions, parseWithFunctions, peek} from "/lib/core.js";
+import {combineReducer} from '/lib/combine.js';
 
 /**
  * A serializable n-ary tree with a well defined reduction defined on all nodes.
@@ -423,8 +426,8 @@ It is not just easier to author, but also saves space and parsing time.
 Despite being a relatively trivial change to `fromArray` and `toArray`, it's important enough to get a discrete step, as a nod to Ken Iverson's excellent 1979 lecture [Notation as a tool of thought](https://www.eecg.toronto.edu/~jzhu/csc326/readings/iverson.pdf)
 
 ```js
-import {stringifyWithFunctions, parseWithFunctions, peek} from "../lib/core.js";
-import {combineReducer} from '../lib/combine.js';
+import {stringifyWithFunctions, parseWithFunctions, peek} from "/lib/core.js";
+import {combineReducer} from '/lib/combine.js';
 
 function stree3(value, reducer = combineReducer) {
   if (Array.isArray(value)) {
@@ -567,8 +570,8 @@ Rather than recomputing the entire reduction from root every time, we cache the 
 * Concern: I don't like maintaining parallel arrays like branches and branchResidues. One alternative is to add a special node to every branch of the n-ary tree and store the branchResidue there. That has some conceptual niceness, as that node moves along leaving behind valid input. OTOH you now have inhomogenous nodes in the tree.
 
 ```js
-import {stringifyWithFunctions, parseWithFunctions, peek} from "../lib/core.js";
-import {combineReducer} from '../lib/combine.js';
+import {stringifyWithFunctions, parseWithFunctions, peek} from "/lib/core.js";
+import {combineReducer} from '/lib/combine.js';
 import {assertHandler, logHandler} from "./handlers.js";
 
 function stree3(value, reducer = combineReducer) {
@@ -727,7 +730,8 @@ stree3(ops);
 ```
 ```js
 import {trieOps} from "./stree-examples.js";
-import {stree, svg} from '../lib/simpatico.js';
+import {stree} from '/lib/simpatico.js';
+import * as svg from '/lib/svg.js';
 import {renderStree} from './stree-visualization.js';
 
 const renderParent = svg.elt('trie-render');
@@ -740,7 +744,8 @@ renderStree(s, renderParent);
 ```
 ```js
 import {objOps} from "./stree-examples.js";
-import {stree, svg} from '../lib/simpatico.js';
+import {stree} from '/lib/simpatico.js';
+import * as svg from '/lib/svg.js';
 import {renderStree} from './stree-visualization.js';
 
 const renderParent = svg.elt('obj-render');

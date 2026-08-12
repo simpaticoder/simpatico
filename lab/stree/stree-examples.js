@@ -1,4 +1,4 @@
-import {assertHandler, logHandler} from "../lib/handlers.js";
+import {assertHandler, logHandler} from "./handlers.js";
 import {DELETE, h} from '/lib/combine.js';
 
 // it would be nice to support non-object values in stree, however this conflicts with both fromArray and other things.
