@@ -102,7 +102,7 @@ export default class PrettyLogger {
   }
 
   generic(event) {
-    this.write(`${event.timestamp} ${event.type}`);
+    // this.write(`${event?.timestamp} ${event?.type}`);
   }
 
   write(line) {

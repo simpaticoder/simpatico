@@ -189,7 +189,7 @@ Here is a somewhat redundant example that I may remove in the future (although i
 
 ```js
 import {combine} from "/lib/combine.js";
-import {assertHandler} from "/lib/handlers.js";
+import {assertHandler} from "/lab/stree/handlers.js";
 
 const has = assertHandler.call;
 const dbl = {
@@ -216,7 +216,7 @@ This is a handler that logs:
 ```js
 import {hasProp} from "/lib/core.js";
 import {combine} from "/lib/combine.js";
-import {assertHandler, logHandler} from "/lib/handlers.js";
+import {assertHandler, logHandler} from "/lab/stree/handlers.js";
 
 const logHandlerDemo = {
   name: 'log',
@@ -262,7 +262,7 @@ Handlers replace, so we can overwrite the old handler and call it with the same 
 
 ```js
 import {combine} from "/lib/combine.js";
-import {assertHandler} from "/lib/handlers.js";
+import {assertHandler} from "/lab/stree/handlers.js";
 
 const has = assertHandler.call;
 const inc1 = {handle: () => [{a: 1}, {b: 2}]};
@@ -289,7 +289,7 @@ Functions replace, so we can overwrite the old handler and call it with the same
 
 ```js
 import {combine} from "/lib/combine.js";
-import {assertHandler} from "/lib/handlers.js";
+import {assertHandler} from "/lab/stree/handlers.js";
 
 const has = assertHandler.call;
 const h1 = {

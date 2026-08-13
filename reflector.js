@@ -6,7 +6,7 @@ import tls from "node:tls";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { execSync } from "node:child_process";
 
 import { WebSocketServer } from "ws";
@@ -157,16 +157,6 @@ export class Reflector {
     });
 
     info(`reflector.js [${JSON.stringify(this.config, null, 2)}]`);
-  }
-
-  getGitCommit() {
-    try {
-      return execSync("git rev-parse --short HEAD", {
-        encoding: "utf8",
-      }).trim();
-    } catch {
-      return "unknown";
-    }
   }
 
   async initialize() {
@@ -337,7 +327,7 @@ export class Reflector {
   // ============================================================
 
   async handleHttpRequestEvent({ protocol, request, response }) {
-    const requestId = crypto.randomUUID();
+    const requestId = randomUUID();
 
     this.logger.log({
       type: "resource-group-start",
@@ -516,43 +506,28 @@ export class Reflector {
     if (this.config.useCache && hasProp(this.cache, fileName)) {
       const data = this.cache[fileName];
 
-      const result = {
+      return {
         data,
         hash: sha256(data),
         cacheHit: true,
         duration: performance.now() - started,
       };
-
-      logging?.resources.push({
-        parentRequestId: logging.parentRequestId,
-        url: getFileUrlInfo(fileName, this.config).urlPath,
-        status: 200,
-        bytes: data.length,
-        duration: result.duration,
-        cacheHit: true,
-      });
-
-      return result;
     }
 
-    const result = this.readProcessCache(fileName, request, logging);
+    const result = this.readProcessCache(fileName, request);
 
-    result.cacheHit = false;
-    result.duration = performance.now() - started;
-
-    logging?.resources.push({
-      parentRequestId: logging.parentRequestId,
+    return {
+      ...result,
+      parentRequestId: 0,
       url: getFileUrlInfo(fileName, this.config).urlPath,
       status: 200,
       bytes: result.data.length,
-      duration: result.duration,
+      duration: performance.now() - started,
       cacheHit: false,
-    });
-
-    return result;
+    };
   }
 
-  readProcessCache(fileName, request = null, logging = null) {
+  readProcessCache(fileName, request = null) {
     let data = this.fs.readFileSync(fileName);
 
     const hash = sha256(data);
@@ -563,18 +538,13 @@ export class Reflector {
         litmdConfigForRequest(this.config, request),
     );
 
+    // TODO this is wrong
     if (this.config.superCacheEnabled) {
-      data = replaceSubResourceLinks(
-          data,
-          (resource) =>
-              this.getResource(resource, request, logging
-                  ? {
-                    ...logging,
-                    parentRequestId: logging.requestId,
-                  }
-                  : null),
-          fileName,
-      );
+      // data = replaceSubResourceLinks(
+      //     data,
+      //     this.getResource(resource, request),
+      //     fileName,
+      // );
     }
 
     if (this.config.useGzip && !isCompressedImage(fileName)) {
@@ -590,7 +560,6 @@ export class Reflector {
       hash,
     };
   }
-
 
   invalidateFile(fileName) {
     const absolutePath = path.isAbsolute(fileName)
@@ -612,6 +581,7 @@ export class Reflector {
     }
   }
 
+  // TODO this is also wrong
   reloadCertificates() {
     log("Certificate file changed; certificates will be reloaded.");
 
@@ -626,6 +596,16 @@ export class Reflector {
 
   dropProcessPrivs(user) {
     info("dropProcessPrivs succeeded", user);
+  }
+
+  getGitCommit() {
+    try {
+      return execSync("git rev-parse --short HEAD", {
+        encoding: "utf8",
+      }).trim();
+    } catch {
+      return "unknown";
+    }
   }
 
   get failWhale() {
