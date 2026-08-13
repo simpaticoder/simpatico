@@ -187,7 +187,7 @@ export class Reflector {
   // Event consumption
   startEventProcessing() {
     const httpServer = this.createHttpServer();
-    const httpsServer = this.createHttpsServer();
+    this.httpsServer = this.createHttpsServer(); // add it as a member to support cert reloading
     const fileWatcher = this.createFileWatcher();
     const certificateWatcher = this.createCertificateWatcher();
 
@@ -196,8 +196,8 @@ export class Reflector {
       fileEvents(fileWatcher),
     ];
 
-    if (httpsServer) {
-      generators.push(httpEvents(httpsServer, "https"));
+    if (this.httpsServer) {
+      generators.push(httpEvents(this.httpsServer, "https"));
     }
 
     if (certificateWatcher) {
@@ -227,7 +227,7 @@ export class Reflector {
         return this.invalidateFile(event.fileName);
 
       case "certificate-changed":
-        return this.reloadCertificates();
+        return this.reloadCertificates(event.fileName);
 
       default:
         debug("Ignoring event:", event);
@@ -264,28 +264,28 @@ export class Reflector {
           .listen(this.config.https, "0.0.0.0");
     }
 
-    const contexts = Object.fromEntries(
+    // add a member
+    this.certificateContexts = Object.fromEntries(
         this.config.hostnames.map((host) => [
           host.hostname,
           this.loadCertificates(host.cert, host.key),
         ]),
     );
 
-    const defaultContext = contexts[this.config.hostnames[0].hostname];
+    const defaultContext =
+        this.certificateContexts[this.config.hostnames[0].hostname];
 
     return this.httpsApi
-        .createServer(
-            {
+        .createServer({
               ...defaultContext,
-
               SNICallback: (servername, callback) => {
-                const context = contexts[servername] || defaultContext;
+                const context =
+                    this.certificateContexts[servername] ||
+                    this.certificateContexts[this.config.hostnames[0].hostname];
 
                 callback(null, this.tls.createSecureContext(context));
               },
-            },
-            this.fileServerLogic(),
-        )
+            })
         .listen(this.config.https, "0.0.0.0");
   }
 
@@ -319,16 +319,36 @@ export class Reflector {
     };
   }
 
-  reloadCertificates() {
-    log("Certificate file changed; certificates will be reloaded.");
-
-    // HTTPS's setSecureContext is used for the single-host case.
-    // SNI contexts are rebuilt by recreating the server context.
-    if (!this.config.useTls) {
+  reloadCertificates(fileName) {
+    if (!this.config.useTls || !this.httpsServer) {
       return;
     }
 
-    log("TLS certificate reload requested.");
+    log(`Certificate file changed: ${fileName}`);
+
+    if (!this.config.hostnames?.length) {
+      this.httpsServer.setSecureContext(
+          this.loadCertificates(this.config.cert, this.config.key),
+      );
+      return;
+    }
+
+    const host = this.config.hostnames.find(
+        (host) => host.cert === fileName || host.key === fileName,
+    );
+
+    if (!host) {
+      return;
+    }
+
+    this.certificateContexts[host.hostname] = this.loadCertificates(host.cert, host.key);
+
+    // Update the default certificate if the default hostname changed.
+    if (host === this.config.hostnames[0]) {
+      this.httpsServer.setSecureContext(
+          this.certificateContexts[host.hostname],
+      );
+    }
   }
 
   // HTTP Request handling
