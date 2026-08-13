@@ -184,93 +184,7 @@ export class Reflector {
     }
   }
 
-  // ============================================================
-  // Server creation
-  // ============================================================
-
-  createHttpServer() {
-    const options = {
-      keepAlive: this.config.httpKeepAlive,
-      headersTimeout: this.config.httpHeadersTimeout,
-    };
-
-    const server = this.httpApi.createServer(options);
-
-    server.listen(this.config.http, "0.0.0.0");
-
-    return server;
-  }
-
-  loadCertificates(certPath, keyPath) {
-    return {
-      cert: this.fs.readFileSync(certPath),
-      key: this.fs.readFileSync(keyPath),
-    };
-  }
-
-  createHttpsServer() {
-    if (!this.config.useTls) {
-      return null;
-    }
-
-    if (!this.config.hostnames?.length) {
-      const certificates = this.loadCertificates(
-        this.config.cert,
-        this.config.key,
-      );
-
-      return this.httpsApi
-        .createServer(certificates, this.fileServerLogic())
-        .listen(this.config.https, "0.0.0.0");
-    }
-
-    const contexts = Object.fromEntries(
-      this.config.hostnames.map((host) => [
-        host.hostname,
-        this.loadCertificates(host.cert, host.key),
-      ]),
-    );
-
-    const defaultContext = contexts[this.config.hostnames[0].hostname];
-
-    return this.httpsApi
-      .createServer(
-        {
-          ...defaultContext,
-
-          SNICallback: (servername, callback) => {
-            const context = contexts[servername] || defaultContext;
-
-            callback(null, this.tls.createSecureContext(context));
-          },
-        },
-        this.fileServerLogic(),
-      )
-      .listen(this.config.https, "0.0.0.0");
-  }
-
-  createFileWatcher() {
-    return this.chokidar.watch(getWatchPaths(this.config), {
-      ignored: /(^|[\/\\])\..|node_modules/,
-      ignoreInitial: true,
-    });
-  }
-
-  createCertificateWatcher() {
-    if (!this.config.useTls) {
-      return null;
-    }
-
-    const paths = this.config.hostnames?.length
-      ? this.config.hostnames.flatMap((host) => [host.cert, host.key])
-      : [this.config.cert, this.config.key];
-
-    return this.chokidar.watch(paths, {
-      ignored: /(^|[\/\\])\..|node_modules/,
-      ignoreInitial: true,
-    });
-  }
-
+  // Event consumption
   startEventProcessing() {
     const httpServer = this.createHttpServer();
     const httpsServer = this.createHttpsServer();
@@ -295,13 +209,11 @@ export class Reflector {
     // TODO: reenable websockets
     // this.startWebSockets(this.config.useTls ? httpsServer : httpServer);
 
-    return this.consumeEvents();
-  }
-
-  async consumeEvents() {
-    for await (const event of this.events) {
-      await this.handleEvent(event);
-    }
+    return (async () => {
+      for await (const event of this.events) {
+        await this.handleEvent(event);
+      }
+    })();
   }
 
   async handleEvent(event) {
@@ -322,10 +234,104 @@ export class Reflector {
     }
   }
 
-  // ============================================================
-  // Request handling
-  // ============================================================
+  // Event production
+  createHttpServer() {
+    const options = {
+      keepAlive: this.config.httpKeepAlive,
+      headersTimeout: this.config.httpHeadersTimeout,
+    };
 
+    const server = this.httpApi.createServer(options);
+
+    server.listen(this.config.http, "0.0.0.0");
+
+    return server;
+  }
+
+  createHttpsServer() {
+    if (!this.config.useTls) {
+      return null;
+    }
+
+    if (!this.config.hostnames?.length) {
+      const certificates = this.loadCertificates(
+          this.config.cert,
+          this.config.key,
+      );
+
+      return this.httpsApi
+          .createServer(certificates, this.fileServerLogic())
+          .listen(this.config.https, "0.0.0.0");
+    }
+
+    const contexts = Object.fromEntries(
+        this.config.hostnames.map((host) => [
+          host.hostname,
+          this.loadCertificates(host.cert, host.key),
+        ]),
+    );
+
+    const defaultContext = contexts[this.config.hostnames[0].hostname];
+
+    return this.httpsApi
+        .createServer(
+            {
+              ...defaultContext,
+
+              SNICallback: (servername, callback) => {
+                const context = contexts[servername] || defaultContext;
+
+                callback(null, this.tls.createSecureContext(context));
+              },
+            },
+            this.fileServerLogic(),
+        )
+        .listen(this.config.https, "0.0.0.0");
+  }
+
+  createFileWatcher() {
+    return this.chokidar.watch(getWatchPaths(this.config), {
+      ignored: /(^|[\/\\])\..|node_modules/,
+      ignoreInitial: true,
+    });
+  }
+
+  // Certificates re/load
+  createCertificateWatcher() {
+    if (!this.config.useTls) {
+      return null;
+    }
+
+    const paths = this.config.hostnames?.length
+        ? this.config.hostnames.flatMap((host) => [host.cert, host.key])
+        : [this.config.cert, this.config.key];
+
+    return this.chokidar.watch(paths, {
+      ignored: /(^|[\/\\])\..|node_modules/,
+      ignoreInitial: true,
+    });
+  }
+
+  loadCertificates(certPath, keyPath) {
+    return {
+      cert: this.fs.readFileSync(certPath),
+      key: this.fs.readFileSync(keyPath),
+    };
+  }
+
+  reloadCertificates() {
+    log("Certificate file changed; certificates will be reloaded.");
+
+    // HTTPS's setSecureContext is used for the single-host case.
+    // SNI contexts are rebuilt by recreating the server context.
+    if (!this.config.useTls) {
+      return;
+    }
+
+    log("TLS certificate reload requested.");
+  }
+
+  // HTTP Request handling
   async handleHttpRequestEvent({ protocol, request, response }) {
     const requestId = randomUUID();
 
@@ -497,9 +503,6 @@ export class Reflector {
     };
   }
 
-  // ============================================================
-  // Resource/cache handling
-  // ============================================================
   getResource(fileName, request) {
     const started = performance.now();
 
@@ -581,19 +584,7 @@ export class Reflector {
     }
   }
 
-  // TODO this is also wrong
-  reloadCertificates() {
-    log("Certificate file changed; certificates will be reloaded.");
-
-    // HTTPS's setSecureContext is used for the single-host case.
-    // SNI contexts are rebuilt by recreating the server context.
-    if (!this.config.useTls) {
-      return;
-    }
-
-    log("TLS certificate reload requested.");
-  }
-
+  // Utilities
   dropProcessPrivs(user) {
     info("dropProcessPrivs succeeded", user);
   }
@@ -618,10 +609,7 @@ export class Reflector {
   }
 }
 
-// ================================================================
 // Process entry point
-// ================================================================
-
 if (import.meta.url === `file://${process.argv[1]}`) {
   const reflector = new Reflector();
   reflector.initialize().then((r) => {});
