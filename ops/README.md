@@ -12,6 +12,7 @@ All shell scripts are **idempotent** — safe to run multiple times.
 | `deploy-remote.sh` | Deploys code updates. Pulls latest, runs `npm install` if needed, restarts the service. |
 | `sync-config.sh` | Copies `server.config.json` to the remote server. |
 | `upgrade-node.sh` | Upgrades Node.js with automatic rollback if the service fails to start. |
+| `fix-certs.sh` | Switches existing certbot certs from `standalone` to `webroot` and tests renewal. |
 
 ## Configuration
 

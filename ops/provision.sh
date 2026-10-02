@@ -206,8 +206,9 @@ provision_certbot() {
         snap install --classic certbot; ln -sf /snap/bin/certbot /usr/bin/certbot
     fi
     local cert_path="/etc/letsencrypt/live/$DOMAIN"
+    local repo_dir="/home/$SERVICE_USER/simpatico"
     if [[ -d "$cert_path" ]]; then log_skip "Certificate for $DOMAIN already exists"
-    else log ">>> Run manually: certbot certonly --standalone -d $DOMAIN"; fi
+    else log ">>> Run manually: certbot certonly --webroot -w $repo_dir -d $DOMAIN"; fi
 }
 
 # --- CLONE REPO ---
