@@ -690,15 +690,12 @@ export class Reflector {
     // Route to recipient
     if (!toSocket) {
       connection.socket.send(
-        JSON.stringify({ ...message.message, error: "RECIPIENT_NOT_AVAILABLE" })
+        JSON.stringify({ error: "RECIPIENT_NOT_AVAILABLE", to })
       );
       return;
     }
 
-    toSocket.send(message.message);
-    connection.socket.send(
-      JSON.stringify({ ...message.message, type: "MESSAGE_DELIVERED" })
-    );
+    toSocket.send(JSON.stringify(message));
   }
 
 

@@ -119,18 +119,52 @@ export default class SecureWebSocketClient {
 
     // pass decrypted message to this.onmessage()
     receive(event, user){
-        // look up the contact
-        const envelope = JSON.parse(event.data);
-        const contact = user.contacts[envelope.from];
-        if (contact === null) throw 'contact not found in user contacts ' + envelope.from;
+        console.debug('[SWSClient] receive raw:', event.data.slice(0, 200));
+        let envelope;
+        try {
+            envelope = JSON.parse(event.data);
+        } catch (e) {
+            console.debug('[SWSClient] JSON.parse failed:', e.message);
+            this?.onmessage(new Error(`Invalid envelope: ${e.message}`), { type: "ERROR", raw: event.data });
+            return;
+        }
+
+        // Ignore server control messages (MESSAGE_DELIVERED, etc.)
+        if (!envelope.from || !envelope.message || !envelope.nonce) {
+            console.debug('[SWSClient] ignored non-envelope:', envelope);
+            if (envelope.error) {
+                this?.onmessage(new Error(envelope.error), { type: "ERROR", envelope });
+            }
+            return;
+        }
+
+        console.debug('[SWSClient] envelope from', envelope.from.slice(0, 16));
+
+        // look up the contact — auto-add unknowns
+        let contact = user.contacts[envelope.from];
+        if (!contact) {
+            console.debug('[SWSClient] auto-adding contact', envelope.from.slice(0, 16));
+            contact = {
+                publicKeyString: envelope.from,
+                publicKeyBits: decode(envelope.from),
+                sharedSecret: crypto.deriveSharedSecret(user.privateKeyBits, decode(envelope.from))
+            };
+            user.contacts[envelope.from] = contact;
+        }
 
         // decrypt the message
-        const decryptedMessageObject = crypto.decryptMessage(envelope, contact.sharedSecret);
-        this?.onmessage(null, {
-            type: "MESSAGE",
-            from: contact,
-            message: decryptedMessageObject
-        });
+        try {
+            const decryptedMessageObject = crypto.decryptMessage(envelope, contact.sharedSecret);
+            console.debug('[SWSClient] decrypted:', decryptedMessageObject);
+            this?.onmessage(null, {
+                type: "MESSAGE",
+                from: contact,
+                message: decryptedMessageObject
+            });
+        } catch (e) {
+            console.debug('[SWSClient] decryption failed:', e.message);
+            this?.onmessage(new Error(`Decryption failed: ${e.message}`), { type: "ERROR", from: contact, envelope });
+        }
     }
 
     /**
@@ -150,9 +184,11 @@ export default class SecureWebSocketClient {
         }
         try {
             const envelope = crypto.encryptMessage(this.user, contact, message);
+            console.debug('[SWSClient] send envelope to', contact.publicKeyString.slice(0, 16), 'type', message.type || '(text)');
             this.socket.send(JSON.stringify(envelope));
         } catch (error) {
-            throw new Error(`Failed to decrypt message: ${error.message}`);
+            console.debug('[SWSClient] send failed:', error.message);
+            throw new Error(`Failed to send message: ${error.message}`);
         }
     }
 
