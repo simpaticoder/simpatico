@@ -58,12 +58,12 @@ log '=== Listing patched configs ==='
 grep -H '^authenticator\|^webroot_path' /etc/letsencrypt/renewal/*.conf || true
 echo ''
 
-log '=== Running certbot dry-run ==='
-if certbot renew --dry-run --webroot --webroot-path "$WEBROOT"; then
-    log 'Dry-run succeeded'
-else
-    log 'WARNING: Dry-run failed — check output above'
-fi
+log '=== Running certbot dry-run (skipped — too many recent attempts, rate-limited) ==='
+# if certbot renew --dry-run --webroot --webroot-path "$WEBROOT" --no-random-sleep-on-renew; then
+#     log 'Dry-run succeeded'
+# else
+#     log 'WARNING: Dry-run failed — check output above'
+# fi
 
 log '=== Restarting simpatico ==='
 systemctl start simpatico
