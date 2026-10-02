@@ -19,17 +19,17 @@ export default class SecureWebSocketServer {
 
     static async create(socket, serverKeys, onsecuremessage, registrationTimeout = 10000) {
         const instance = new SecureWebSocketServer(socket, serverKeys, onsecuremessage);
-        await instance.initialize(registrationTimeout);
-        return instance;
+        try {
+            await instance.initialize(registrationTimeout);
+            return instance;
+        } catch (error) {
+            instance.cleanup(error);
+            throw error;
+        }
     }
 
     async initialize(registrationTimeout) {
-        try{
-            await this.handleRegistration(registrationTimeout);
-        } catch (error){
-            this.cleanup(error);
-        }
-
+        await this.handleRegistration(registrationTimeout);
     }
 
     cleanup(error) {
@@ -109,7 +109,6 @@ export default class SecureWebSocketServer {
         const serverPublicKeyMatches = envelope.to === this.serverKeys.publicKeyString;
 
         const sharedSecret = crypto.deriveSharedSecret(this.serverKeys.privateKeyBits, decode(envelope.from));
-        const sharedSecretMatches = encode(sharedSecret) !== envelope.sharedSecret
         //console.debug("3a. Server derives shared secret ", encode(sharedSecret), envelope.sharedSecret);
 
         const nonceMatches = (encode(nonceBits) === envelope.nonce);
@@ -118,7 +117,7 @@ export default class SecureWebSocketServer {
         const clearMessageBits = crypto.decryptMessage(envelope, sharedSecret, false);
         const clearMessageString = bitsToString(clearMessageBits);
         const messageMatches = clearMessageString === expectedMessageString;
-        return serverPublicKeyMatches & sharedSecretMatches & nonceMatches && messageMatches;
+        return serverPublicKeyMatches && nonceMatches && messageMatches;
     }
 
     setupSecureMessageHandling() {

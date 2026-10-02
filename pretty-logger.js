@@ -38,8 +38,9 @@ export default class PrettyLogger {
     });
 
     const time = event.timestamp.slice(11, 23);
+    const method = event.method ? event.method.padEnd(4) : "    ";
 
-    this.write(`${time}  ${event.method.padEnd(4)} ${event.url}`);
+    this.write(`${time}  ${method} ${event.url}`);
   }
 
   request(event) {

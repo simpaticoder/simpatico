@@ -2,25 +2,44 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="date" content="2025-08-25">
     <meta name="description" content="Play the Set card game in your browser - vanilla JavaScript implementation">
-    <title>SET Game in Vanilla JS</title>
+    <title>SET Game (Vanilla JS)</title>
     <style>
+        * { box-sizing: border-box; }
         body { font-family: sans-serif; background: #f0f1f3; margin: 0; padding: 0; }
-        h1 { text-align: center; }
-        #game { display: flex; flex-direction: column; align-items: center; }
+        h1 { text-align: center; font-size: 1.4em; margin: 10px 0; }
+        #game { display: flex; flex-direction: column; align-items: center; padding: 0 8px; }
+        a { font-size: 0.9em; margin-bottom: 4px; }
         #board {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(3, auto);
-            gap: 12px;
-            width: 520px;   /* 4 × 120px card + 3 × 12px gap */
-            margin-top: 20px;
+            gap: 8px;
+            width: 100%;
+            max-width: 360px;
+            margin-top: 12px;
             justify-content: center;
+            grid-template-columns: repeat(3, 1fr);
         }
 
-        .card { cursor: pointer;  border-radius: 14px;
-            border: 2px solid #ddd; background: #fff; box-shadow: 1px 2px 7px #bbb4; transition: box-shadow 0.15s, border-color 0.15s; }
+        .card {
+            cursor: pointer;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+            background: #fff;
+            box-shadow: 1px 2px 7px #bbb4;
+            transition: box-shadow 0.15s, border-color 0.15s, transform 0.08s;
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .card:active { transform: scale(0.96); }
+        .card svg { width: 100%; height: 100%; display: block; }
+        .card.empty { display: none; }
         .selected { border-color: #E27905 !important; box-shadow: 0 0 0 4px #FFD580aa; }
         .set { border-color: #48A14D !important; box-shadow: 0 0 0 4px #98F8A6aa; }
         .notset { border-color: #BC2A28 !important; box-shadow: 0 0 0 4px #FF9D97aa; }
@@ -29,9 +48,55 @@
             box-shadow: 0 0 0 4px #87e2ff99;
         }
 
-        #deckcount { margin-top: 1em; }
-        #message {margin-top: 16px; height: 28px; font-weight: bold;}
-        button { margin-left: 1em; cursor:pointer; }
+        #deckcount { margin-top: 0.6em; font-size: 0.9em; }
+        #message { margin-top: 10px; height: 24px; font-weight: bold; font-size: 0.95em; }
+
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 12px;
+            max-width: 360px;
+        }
+        button {
+            flex: 1 1 40%;
+            cursor: pointer;
+            padding: 10px 6px;
+            font-size: 14px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background: #fff;
+            min-height: 44px;
+            touch-action: manipulation;
+        }
+        button:active { background: #e8e8e8; }
+
+        @media (min-width: 600px) {
+            h1 { font-size: 2em; margin: 20px 0; }
+            #game { padding: 0; }
+            #board {
+                gap: 12px;
+                max-width: 560px;
+                margin-top: 20px;
+                grid-template-columns: repeat(4, 1fr);
+            }
+            #board.expanded {
+                grid-template-columns: repeat(5, 1fr);
+                max-width: 700px;
+            }
+            .card { border-radius: 14px; }
+            #controls {
+                max-width: 560px;
+                flex-wrap: nowrap;
+            }
+            #controls.expanded-controls { max-width: 700px; }
+            button {
+                flex: 0 0 auto;
+                padding: 8px 16px;
+                min-height: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -42,14 +107,17 @@
     <div id="deckcount"></div>
     <div id="board"></div>
     <div id="message"></div>
-    <button id="add3">Add 3 Cards</button>
-    <button id="restart">Restart</button>
-    <button id="noSet">No Set</button>
-    <button id="highlightSet">Highlight a Set</button>
+    <div id="controls">
+        <button id="add3">Add 3 Cards</button>
+        <button id="restart">Restart</button>
+        <button id="noSet">No Set</button>
+        <button id="highlightSet">Hint</button>
+    </div>
 </div>
 
 <script>
-    // Deck generation (4 attributes, 3 values each)
+    const SLOTS = 15;
+
     function generateDeck() {
         const deck = [];
         for (let a = 0; a < 3; a++)
@@ -59,17 +127,21 @@
                         deck.push([a, b, c, d]);
         return deck;
     }
-    // Fisher-Yates shuffle
+
     function shuffle(deck) {
         for (let i = deck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [deck[i], deck[j]] = [deck[j], deck[i]];
         }
     }
+
     function findAnySet(board) {
-        for (let i = 0; i < board.length; i++) {
-            for (let j = i+1; j < board.length; j++) {
-                for (let k = j+1; k < board.length; k++) {
+        const idxs = [];
+        for (let i = 0; i < board.length; i++) if (board[i] !== null) idxs.push(i);
+        for (let a = 0; a < idxs.length; a++) {
+            for (let b = a + 1; b < idxs.length; b++) {
+                for (let c = b + 1; c < idxs.length; c++) {
+                    const i = idxs[a], j = idxs[b], k = idxs[c];
                     if (isSet([board[i], board[j], board[k]])) {
                         return [i, j, k];
                     }
@@ -79,8 +151,8 @@
         return null;
     }
 
-    // Card to SVG string
-    function cardToSVG([number, symbol, shading, color], width = 120, height = 180) {
+    function cardToSVG([number, symbol, shading, color]) {
+        const width = 120, height = 180;
         const colors = ['#d22', '#292', '#828'];
         const symbolYs = [
             [height / 2],
@@ -88,7 +160,6 @@
             [height / 2 - 36, height / 2, height / 2 + 36]
         ][number];
 
-        // Pattern uses color of the card
         const patternId = `stripes_${color}`;
         const pattern = `
     <pattern id="${patternId}" patternUnits="userSpaceOnUse" width="6" height="6">
@@ -98,22 +169,21 @@
   `;
 
         function fill(base) {
-            if (shading === 0) return base; // solid
+            if (shading === 0) return base;
             if (shading === 1) return `url(#${patternId})`;
             return "none";
         }
 
         function renderShape(cx, cy) {
             switch (symbol) {
-                case 0: // oval
+                case 0:
                     return `<ellipse cx="${cx}" cy="${cy}" rx="32" ry="16" stroke="${colors[color]}"
                 stroke-width="4" fill="${fill(colors[color])}" />`;
-                case 1: // diamond
+                case 1:
                     return `<polygon points="${cx-28},${cy} ${cx},${cy-17} ${cx+28},${cy} ${cx},${cy+17}"
                 stroke="${colors[color]}" stroke-width="4" fill="${fill(colors[color])}" />`;
-                case 2: { // squiggle — official shape, scaled and centered
-                    // Based on original box ~108x59, center ~[58.5,36.5]
-                    const scale = 0.57; // fits nicely in 64x32 box
+                case 2: {
+                    const scale = 0.57;
                     const pathOffsetX = 58.5;
                     const pathOffsetY = 36.5;
                     return `<g transform="translate(${cx - scale * pathOffsetX},${cy - scale * pathOffsetY}) scale(${scale})">
@@ -136,11 +206,9 @@
             }
         }
 
-
-
         const symbols = symbolYs.map(y => renderShape(width/2, y)).join('\n');
         return `
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
   <defs>
     ${shading === 1 ? pattern : ''}
   </defs>
@@ -150,7 +218,6 @@
   `.trim();
     }
 
-    // Set logic: is it a set? (no Set object)
     function isSet([a, b, c]) {
         for (let i = 0; i < 4; i++) {
             const x = a[i], y = b[i], z = c[i];
@@ -161,38 +228,80 @@
         return true;
     }
 
+    let deck, board, selected = [], messageDiv, boardDiv, deckDiv, controlsDiv;
+    let cardSlots = [];
 
-    // App state
-    let deck, board, selected = [], messageDiv, boardDiv, deckDiv;
     function setup() {
         deck = generateDeck();
         shuffle(deck);
-        board = [];
+        board = new Array(SLOTS).fill(null);
         selected = [];
         messageDiv = document.getElementById('message');
         boardDiv = document.getElementById('board');
         deckDiv = document.getElementById('deckcount');
-        for (let i = 0; i < 12; i++) dealCardToBoard();
+        controlsDiv = document.getElementById('controls');
+        initSlots();
+        for (let i = 0; i < 12; i++) board[i] = deck.pop();
         render();
     }
-    function dealCardToBoard() {
-        if (deck.length) board.push(deck.pop());
-    }
-    function render() {
+
+    function initSlots() {
         boardDiv.innerHTML = '';
-        board.forEach((card, idx) => {
+        cardSlots = [];
+        for (let i = 0; i < SLOTS; i++) {
             const div = document.createElement('div');
-            div.className = 'card';
-            div.style.width = "120px";
-            div.style.height = "180px";
-            div.innerHTML = cardToSVG(card);
-            if (selected.includes(idx)) div.classList.add('selected');
-            div.onclick = () => handleSelect(idx);
+            div.className = 'card empty';
+            div.onclick = () => handleSelect(i);
             boardDiv.appendChild(div);
-        });
-        deckDiv.textContent = `Cards left in deck: ${deck.length}`;
+            cardSlots.push(div);
+        }
     }
+
+    function updateSlotPositions() {
+        const isDesktop = window.innerWidth >= 600;
+        const hasExtra = board[12] !== null || board[13] !== null || board[14] !== null;
+
+        boardDiv.classList.toggle('expanded', isDesktop && hasExtra);
+        controlsDiv.classList.toggle('expanded-controls', isDesktop && hasExtra);
+
+        cardSlots.forEach((div, idx) => {
+            if (!isDesktop) {
+                // Mobile: 3 columns, natural row flow
+                div.style.gridRow = Math.floor(idx / 3) + 1;
+                div.style.gridColumn = (idx % 3) + 1;
+            } else if (idx < 12) {
+                // Desktop base: 4 columns × 3 rows, positions never change
+                div.style.gridRow = Math.floor(idx / 4) + 1;
+                div.style.gridColumn = (idx % 4) + 1;
+            } else {
+                // Desktop extra: 5th column, rows 1–3
+                div.style.gridRow = idx - 11;  // 12→1, 13→2, 14→3
+                div.style.gridColumn = 5;
+            }
+        });
+    }
+
+    function render() {
+        if (cardSlots.length === 0) initSlots();
+        board.forEach((card, idx) => {
+            const div = cardSlots[idx];
+            const cls = card === null
+                ? 'card empty'
+                : 'card' + (selected.includes(idx) ? ' selected' : '');
+            const cardKey = card ? card.join(',') : '';
+            if (div.className !== cls || div.dataset.card !== cardKey) {
+                div.className = cls;
+                div.innerHTML = card ? cardToSVG(card) : '';
+                div.dataset.card = cardKey;
+            }
+        });
+        const cardCount = board.filter(c => c !== null).length;
+        deckDiv.textContent = `Board: ${cardCount} · Deck: ${deck.length}`;
+        updateSlotPositions();
+    }
+
     function handleSelect(idx) {
+        if (board[idx] === null) return;
         if (selected.includes(idx)) {
             selected = selected.filter(i => i !== idx);
         } else if (selected.length < 3) {
@@ -202,16 +311,17 @@
         render();
         highlightSelection();
     }
+
     function highlightSelection(setStatus) {
-        // Visual feedback after 3 selected
         if (selected.length === 3 && setStatus !== undefined) {
-            const cards = document.querySelectorAll('.card');
             selected.forEach(i => {
-                cards[i].classList.remove('selected');
-                cards[i].classList.add(setStatus ? 'set' : 'notset');
+                const div = cardSlots[i];
+                div.classList.remove('selected');
+                div.classList.add(setStatus ? 'set' : 'notset');
             });
         }
     }
+
     function checkSet() {
         const selCards = selected.map(i => board[i]);
         const valid = isSet(selCards);
@@ -219,49 +329,85 @@
         messageDiv.textContent = valid ? "✔️ SET!" : "❌ Not a Set!";
         setTimeout(() => {
             if (valid) {
-                // Remove from board highest idx first
-                selected.sort((a,b)=>b-a).forEach(i=>board.splice(i,1));
-                while (board.length < 12 && deck.length) dealCardToBoard();
+                // Remove the selected cards
+                selected.forEach(i => board[i] = null);
+                const remaining = board.filter(c => c !== null).length;
+
+                if (remaining < 12 && deck.length > 0) {
+                    // Fill gaps in 0-11 back up to 12 from the deck
+                    for (let i = 0; i < 12 && deck.length > 0; i++) {
+                        if (board[i] === null) board[i] = deck.pop();
+                    }
+                }
+
+                // Least-moves collapse: if any cards survived in the 5th column,
+                // move them into the lowest-index gaps in the first 4 columns.
+                const survivors = [];
+                for (let i = 12; i < 15; i++) {
+                    if (board[i] !== null) {
+                        survivors.push(board[i]);
+                        board[i] = null;
+                    }
+                }
+                let s = 0;
+                for (let i = 0; i < 12 && s < survivors.length; i++) {
+                    if (board[i] === null) board[i] = survivors[s++];
+                }
             }
             selected = [];
             render();
             messageDiv.textContent = '';
         }, 900);
     }
-    // Add 3 more cards to board if deck available
+
     document.getElementById('add3').onclick = () => {
         if (deck.length < 3) return;
-        for (let i = 0; i < 3; i++) dealCardToBoard();
+        let added = 0;
+        for (let i = 0; i < board.length && added < 3; i++) {
+            if (board[i] === null) {
+                board[i] = deck.pop();
+                added++;
+            }
+        }
         render();
     };
-    // Restart button
+
     document.getElementById('restart').onclick = setup;
+
     document.getElementById('noSet').onclick = () => {
         const setFound = findAnySet(board);
         if (setFound) {
             alert("There IS a set on the board!");
         } else if (deck.length >= 3) {
-            for (let i = 0; i < 3; i++) dealCardToBoard();
+            let added = 0;
+            for (let i = 0; i < board.length && added < 3; i++) {
+                if (board[i] === null) {
+                    board[i] = deck.pop();
+                    added++;
+                }
+            }
             render();
         } else {
             alert("No sets on board, and no more cards in deck!");
         }
     };
+
     document.getElementById('highlightSet').onclick = () => {
         const setFound = findAnySet(board);
         if (!setFound) {
             alert("No set found on the board!");
             return;
         }
-        const cards = document.querySelectorAll('.card');
-        setFound.forEach(i => cards[i].classList.add('hint'));
+        setFound.forEach(i => cardSlots[i].classList.add('hint'));
         setTimeout(() => {
-            setFound.forEach(i => cards[i].classList.remove('hint'));
-        }, 1100); // 1.1 seconds
+            setFound.forEach(i => cardSlots[i].classList.remove('hint'));
+        }, 1100);
     };
 
+    window.addEventListener('resize', () => {
+        if (cardSlots.length) updateSlotPositions();
+    });
 
-    // Start
     setup();
 </script>
 </body>

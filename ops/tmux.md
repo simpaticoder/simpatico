@@ -1,36 +1,36 @@
-
 # Tmux
-ctrl+b s to list sessions.
-Ctrl+B D — Detach from the current session.
 
-https://superuser.com/questions/209437/how-do-i-scroll-in-tmux
-`ctrl+b [` to scroll up.
-```text
-Function                     vi              emacs
---------                     --              -----
-Half page down               C-d             M-Down
-Half page up                 C-u             M-Up
-Next page                    C-f             Page down
-Previous page                C-b             Page up
-Scroll down                  C-Down or C-e   C-Down
-Scroll up                    C-Up or C-y     C-Up
-Search again                 n               n
-Search again in reverse      N               N
-Search backward              ?               C-r
-Search forward               /               C-s
+`ctrl+b s` — list sessions.  
+`ctrl+b d` — detach from current session.
 
-Ctrl+B D — Detach from the current session.
-Ctrl+B % — Split the window into two panes horizontally.
-Ctrl+B " — Split the window into two panes vertically.
-Ctrl+B Arrow Key (Left, Right, Up, Down) — Move between panes.
-Ctrl+B X — Close pane.
-Ctrl+B C — Create a new window.
-Ctrl+B N or P — Move to the next or previous window.
-Ctrl+B 0 (1,2...) — Move to a specific window by number.
-Ctrl+B : — Enter the command line to type commands. Tab completion is available.
-Ctrl+B ? — View all keybindings. Press Q to exit.
-Ctrl+B W — Open a panel to navigate across windows in multiple sessions.
+## Scroll mode
 
-```
-**d**
-Q: why are new sessions constantly being added to my persistent tmux session?
+`ctrl+b [` to enter scroll mode.
+
+| Function | vi | emacs |
+|----------|----|-------|
+| Half page down | C-d | M-Down |
+| Half page up | C-u | M-Up |
+| Next page | C-f | Page down |
+| Previous page | C-b | Page up |
+| Scroll down | C-Down or C-e | C-Down |
+| Scroll up | C-Up or C-y | C-Up |
+| Search again | n | n |
+| Search reverse | N | N |
+| Search backward | ? | C-r |
+| Search forward | / | C-s |
+
+## Panes & windows
+
+| Command | Key |
+|---------|-----|
+| Split horizontally | `ctrl+b %` |
+| Split vertically | `ctrl+b "` |
+| Move between panes | `ctrl+b` + arrow |
+| Close pane | `ctrl+b x` |
+| New window | `ctrl+b c` |
+| Next / prev window | `ctrl+b n` / `ctrl+b p` |
+| Go to window N | `ctrl+b 0`–`9` |
+| Command line | `ctrl+b :` |
+| List keybindings | `ctrl+b ?` |
+| Navigate windows/sessions | `ctrl+b w` |

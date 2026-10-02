@@ -13,13 +13,13 @@
     ".": "./lib/simpatico.js"
   },
   "bin": {
-    "simpatico": "./server.js",
+    "simpatico": "./reflector.js",
     "blog": "./lib/blog.js",
     "make-certs": "./make-certs.sh"
   },
   "scripts": {
     "test": "node ./test/test.js",
-    "start": "node ./server.js",
+    "start": "node ./reflector.js",
     "blog": "node ./lib/blog.js",
     "copy-vendor": "cp ./node_modules/github-markdown-css/github-markdown.css ./vendor/",
     "copy-lab": "echo 'not ready yet' && cp ./node_modules/dompurify/dist/purify.es.mjs ./lab/dompurify.js && cp ./node_modules/qrcode/index.js ./vendor/qrcode.js",

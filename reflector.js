@@ -42,14 +42,13 @@ import {
   fileEvents,
   httpEvents,
   mergeEvents,
+  websocketEvents,
 } from "./reflector-generators.js";
 
 import PrettyLogger from "./pretty-logger.js";
 
-// ================================================================
-// Configuration
-// ================================================================
 
+// Configuration
 export function loadConfig({
   env = process.env,
   argv = process.argv,
@@ -124,15 +123,12 @@ export function loadConfig({
   return config;
 }
 
-// ================================================================
-// Reflector
-// ================================================================
-
 export class Reflector {
   constructor({
     config = loadConfig(),
     httpApi = http,
     httpsApi = https,
+    wsApi = WebSocketServer,
     fsApi = fs,
     tlsApi = tls,
     chokidarApi = chokidar,
@@ -140,6 +136,7 @@ export class Reflector {
     this.config = config;
     this.httpApi = httpApi;
     this.httpsApi = httpsApi;
+    this.wsApi = wsApi;
     this.fs = fsApi;
     this.tls = tlsApi;
     this.chokidar = chokidarApi;
@@ -196,8 +193,13 @@ export class Reflector {
       fileEvents(fileWatcher),
     ];
 
-    if (this.httpsServer) {
+    if (this.config.useTls && this.httpsServer) {
       generators.push(httpEvents(this.httpsServer, "https"));
+    }
+
+    if (this.config.enableWebsockets && (this.httpsServer || httpServer)) {
+      this.wsServer = this.createWebSocketServer(this.httpsServer || httpServer);
+      generators.push(websocketEvents(this.wsServer, this.webSocketKeys))
     }
 
     if (certificateWatcher) {
@@ -206,8 +208,6 @@ export class Reflector {
 
     this.events = mergeEvents(...generators);
 
-    // TODO: reenable websockets
-    // this.startWebSockets(this.config.useTls ? httpsServer : httpServer);
 
     return (async () => {
       for await (const event of this.events) {
@@ -228,6 +228,15 @@ export class Reflector {
 
       case "certificate-changed":
         return this.reloadCertificates(event.fileName);
+
+      case "websocket-registered":
+        return this.handleWebSocketRegistered(event);
+
+      case "websocket-message":
+        return this.handleWebSocketMessage(event);
+
+      case "websocket-registration-failed":
+        return this.handleWebSocketRegistrationFailed(event);
 
       default:
         debug("Ignoring event:", event);
@@ -293,6 +302,14 @@ export class Reflector {
     return this.chokidar.watch(getWatchPaths(this.config), {
       ignored: /(^|[\/\\])\..|node_modules/,
       ignoreInitial: true,
+    });
+  }
+
+  createWebSocketServer(server) {
+    this.webSocketKeys = SecureWebSocketServer.generateKeys();
+
+    return new this.wsApi({
+      server,
     });
   }
 
@@ -457,6 +474,13 @@ export class Reflector {
       return { status: 200 };
     }
 
+    if (req.url.startsWith("/.well-known/appspecific/")) {
+      res.writeHead(404);
+      res.end();
+
+      return { status: 404, bytes: 0, duration: performance.now() - started };
+    }
+
     if (!("user-agent" in req.headers)) {
       res.writeHead(500);
       res.end("user-agent header required");
@@ -604,9 +628,113 @@ export class Reflector {
     }
   }
 
+  //Web sockets
+  handleWebSocketRegistered({ connection }) {
+    if (hasProp(this.connections, connection.publicKey)) {
+      connection.socket.send(
+        JSON.stringify({ error: "SOCKET_ALREADY_REGISTERED" })
+      );
+      connection.close();
+      return;
+    }
+
+    this.connections[connection.publicKey] = connection;
+
+    connection.onclose = () => {
+      delete this.connections[connection.publicKey];
+      debug("WebSocket unregistered:", connection.publicKey);
+    };
+
+    debug("WebSocket registered:", connection.publicKey);
+  }
+
+  handleWebSocketRegistrationFailed({ error }) {
+    debug("WebSocket registration failed:", error?.message || error);
+  }
+
+  handleWebSocketMessage({ connection, message }) {
+    const { type, from, to } = message;
+    const fromSocket = this.connections[from];
+    const toSocket = this.connections[to];
+
+    // Validate sender identity
+    if (!fromSocket) {
+      connection.socket.send(
+        JSON.stringify({ ...message, error: "SOCKET_NOT_REGISTERED" })
+      );
+      return;
+    }
+
+    if (fromSocket !== connection) {
+      connection.socket.send(
+        JSON.stringify({ ...message, error: "MISMATCHED_SOCKET_PUBLIC_KEY" })
+      );
+      return;
+    }
+
+    // Validate message structure
+    if (message.message === undefined) {
+      connection.socket.send(
+        JSON.stringify({ ...message, error: "MISSING_CONTENT_FIELD" })
+      );
+      return;
+    }
+
+    if (type !== "MESSAGE") {
+      connection.socket.send(
+        JSON.stringify({ ...message, error: "MISSING_TYPE_MESSAGE" })
+      );
+      return;
+    }
+
+    // Route to recipient
+    if (!toSocket) {
+      connection.socket.send(
+        JSON.stringify({ ...message.message, error: "RECIPIENT_NOT_AVAILABLE" })
+      );
+      return;
+    }
+
+    toSocket.send(message.message);
+    connection.socket.send(
+      JSON.stringify({ ...message.message, type: "MESSAGE_DELIVERED" })
+    );
+  }
+
+
+
   // Utilities
   dropProcessPrivs(user) {
-    info("dropProcessPrivs succeeded", user);
+    if (!user || process.getuid() !== 0) {
+      // Only root can drop privileges. If not running as root, skip.
+      info(`dropProcessPrivs: skipping (user=${user}, uid=${process.getuid()})`);
+      return;
+    }
+
+    try {
+      // Drop supplementary groups, then group, then user privileges.
+      // This order is critical: once setuid() is called, we lose CAP_SETUID
+      // and can no longer call setgid() or setgroups().
+      process.setgroups([]);
+
+      // Try setgid with the user string first. If that fails (e.g.
+      // 'nobody' user exists but no 'nobody' group), try the numeric
+      // GID from the password database.
+      try {
+        process.setgid(user);
+      } catch {
+        // On failure, look up the user's GID from the passwd database
+        const { execSync } = require("node:child_process");
+        const entry = execSync(`getent passwd ${user}`, { encoding: "utf8" }).trim();
+        const gid = parseInt(entry.split(":")[3], 10);
+        process.setgid(gid);
+      }
+
+      process.setuid(user);
+      info(`dropProcessPrivs succeeded to user ${user} (uid=${process.getuid()}, gid=${process.getgid()})`);
+    } catch (err) {
+      error(`dropProcessPrivs failed for user ${user}:`, err.message);
+    }
   }
 
   getGitCommit() {

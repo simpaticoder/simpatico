@@ -2410,7 +2410,7 @@ showdown.Converter = function (converterOptions) {
 
   /**
    * Listen to an event
-   * @param {string} name
+   * @param {number} name
    * @param {function} callback
    * @returns {showdown.Converter}
    */

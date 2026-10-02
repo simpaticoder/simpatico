@@ -1,5 +1,5 @@
 # Secure WebSocket
-
+ 
 A secure websocket encrypts all messages such that the server cannot read them.
 The server in this scenario verifies clients and routes messages between connected clients.
 

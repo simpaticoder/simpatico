@@ -236,7 +236,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/home/$SERVICE_USER/simpatico
-ExecStart=/usr/local/bin/node server.js
+ExecStart=/usr/local/bin/node /home/$SERVICE_USER/simpatico/reflector.js
 Restart=on-failure
 RestartSec=10
 

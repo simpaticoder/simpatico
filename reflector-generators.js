@@ -1,3 +1,5 @@
+import SecureWebSocketServer from "./lab/websocket/SecureWebSocketServer.js";
+
 export async function* httpEvents(server, protocol) {
   const queue = [];
   let wake;
@@ -86,6 +88,64 @@ export async function* certificateEvents(watcher) {
         fileName: event.fileName,
       };
     }
+  }
+}
+
+export async function* websocketEvents(websocketServer, serverKeys) {
+  const queue = [];
+  let wake;
+
+  const push = (event) => {
+    queue.push(event);
+    wake?.();
+    wake = undefined;
+  };
+
+  const onConnection = async (socket, request) => {
+    try {
+      const secureSocket = await SecureWebSocketServer.create(
+          socket,
+          serverKeys,
+          (message, connection) => {
+            push({
+              type: "websocket-message",
+              connection,
+              message,
+            });
+          },
+      );
+
+      if (secureSocket) {
+        push({
+          type: "websocket-registered",
+          connection: secureSocket,
+          request,
+        });
+      }
+    } catch (error) {
+      push({
+        type: "websocket-registration-failed",
+        error,
+      });
+    }
+  };
+
+  websocketServer.on("connection", onConnection);
+
+  try {
+    while (true) {
+      if (!queue.length) {
+        await new Promise((resolve) => {
+          wake = resolve;
+        });
+      }
+
+      while (queue.length) {
+        yield queue.shift();
+      }
+    }
+  } finally {
+    websocketServer.off("connection", onConnection);
   }
 }
 
