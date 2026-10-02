@@ -61,6 +61,11 @@ export async function* fileEvents(watcher) {
     watcher.on(event, listener);
   }
 
+  const onError = (error) => {
+    console.error("File watcher error:", error.message || error);
+  };
+  watcher.on("error", onError);
+
   try {
     while (true) {
       if (!queue.length) {
@@ -77,6 +82,7 @@ export async function* fileEvents(watcher) {
     for (const [event, listener] of Object.entries(listeners)) {
       watcher.off(event, listener);
     }
+    watcher.off("error", onError);
   }
 }
 
