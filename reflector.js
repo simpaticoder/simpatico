@@ -344,9 +344,13 @@ export class Reflector {
         ? this.config.hostnames.flatMap((host) => [host.cert, host.key])
         : [this.config.cert, this.config.key];
 
+    log("Watching certificate paths for changes:", paths.join(", "));
+
     return this.chokidar.watch(paths, {
       ignored: /(^|[\/\\])\..|node_modules/,
       ignoreInitial: true,
+      followSymlinks: true,
+      awaitWriteFinish: { stabilityThreshold: 2000 },
     });
   }
 
@@ -364,28 +368,35 @@ export class Reflector {
 
     log(`Certificate file changed: ${fileName}`);
 
-    if (!this.config.hostnames?.length) {
-      this.httpsServer.setSecureContext(
-          this.loadCertificates(this.config.cert, this.config.key),
+    try {
+      if (!this.config.hostnames?.length) {
+        const ctx = this.loadCertificates(this.config.cert, this.config.key);
+        this.httpsServer.setSecureContext(ctx);
+        log("Reloaded default certificate successfully");
+        return;
+      }
+
+      const host = this.config.hostnames.find(
+          (host) => host.cert === fileName || host.key === fileName,
       );
-      return;
-    }
 
-    const host = this.config.hostnames.find(
-        (host) => host.cert === fileName || host.key === fileName,
-    );
+      if (!host) {
+        log(`Could not match changed file to any hostname: ${fileName}`);
+        return;
+      }
 
-    if (!host) {
-      return;
-    }
+      this.certificateContexts[host.hostname] = this.loadCertificates(host.cert, host.key);
+      log(`Reloaded certificate for ${host.hostname}`);
 
-    this.certificateContexts[host.hostname] = this.loadCertificates(host.cert, host.key);
-
-    // Update the default certificate if the default hostname changed.
-    if (host === this.config.hostnames[0]) {
-      this.httpsServer.setSecureContext(
-          this.certificateContexts[host.hostname],
-      );
+      // Update the default certificate if the default hostname changed.
+      if (host === this.config.hostnames[0]) {
+        this.httpsServer.setSecureContext(
+            this.certificateContexts[host.hostname],
+        );
+        log("Updated default secure context");
+      }
+    } catch (err) {
+      error(`Failed to reload certificate from ${fileName}:`, err.message);
     }
   }
 
