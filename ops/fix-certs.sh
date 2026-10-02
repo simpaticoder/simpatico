@@ -26,29 +26,32 @@ echo "=== Fixing certbot certs on $HOST ==="
 echo "Webroot: $WEBROOT"
 echo ""
 
-REMOTE_SCRIPT="
+TMPFILE=$(mktemp)
+trap "rm -f $TMPFILE" EXIT
+
+cat > "$TMPFILE" <<'REMOTE'
+#!/usr/bin/env bash
 set -euo pipefail
 
-SERVICE_USER='${SERVICE_USER}'
-WEBROOT='${WEBROOT}'
+WEBROOT='REMOTE_WEBROOT'
 
-log() { echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] \$*\"; }
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 log '=== Stopping simpatico ==='
 systemctl stop simpatico || true
 
 log '=== Patching renewal configs ==='
 for conf in /etc/letsencrypt/renewal/*.conf; do
-    if [[ ! -f \"\$conf\" ]]; then
+    if [[ ! -f "$conf" ]]; then
         log 'No renewal configs found'
         break
     fi
-    log \"Patching: \$conf\"
+    log "Patching: $conf"
     # Replace standalone with webroot
-    sed -i 's/^authenticator\s*=\s*standalone/authenticator = webroot/' \"\$conf\"
+    sed -i 's/^authenticator\s*=\s*standalone/authenticator = webroot/' "$conf"
     # Ensure webroot_path is set (remove old one first, then add)
-    sed -i '/^webroot_path/d' \"\$conf\"
-    sed -i '/^\[renewalparams\]/a webroot_path = '"\$WEBROOT\" \"\$conf\"
+    sed -i '/^webroot_path/d' "$conf"
+    sed -i "/^\[renewalparams\]/a webroot_path = $WEBROOT" "$conf"
 done
 
 log '=== Listing patched configs ==='
@@ -56,7 +59,7 @@ grep -H '^authenticator\|^webroot_path' /etc/letsencrypt/renewal/*.conf || true
 echo ''
 
 log '=== Running certbot dry-run ==='
-if certbot renew --dry-run --webroot --webroot-path \"\$WEBROOT\"; then
+if certbot renew --dry-run --webroot --webroot-path "$WEBROOT"; then
     log 'Dry-run succeeded'
 else
     log 'WARNING: Dry-run failed — check output above'
@@ -74,11 +77,10 @@ else
 fi
 
 log '=== Done ==='
-"
+REMOTE
 
-TMPFILE=$(mktemp)
-trap "rm -f $TMPFILE" EXIT
-echo "$REMOTE_SCRIPT" > "$TMPFILE"
+# Substitute the webroot path into the remote script
+sed -i "s|REMOTE_WEBROOT|$WEBROOT|g" "$TMPFILE"
 
 scp -q "$TMPFILE" "$ADMIN_USER@$HOST:/tmp/fix-certs.sh"
 ssh "$ADMIN_USER@$HOST" 'sudo bash /tmp/fix-certs.sh; rm -f /tmp/fix-certs.sh'
