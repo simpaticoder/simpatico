@@ -165,6 +165,26 @@ export class Reflector {
       process.exit(1);
     });
 
+    const httpServer = this.httpServer ?? this.httpsServer;
+    if (httpServer?._listenPromise) {
+      try {
+        await httpServer._listenPromise;
+        info(`Listening on port ${this.config.http}`);
+      } catch (err) {
+        error("HTTP server failed to start:", err.message);
+        process.exit(1);
+      }
+    }
+    if (this.httpsServer?._listenPromise) {
+      try {
+        await this.httpsServer._listenPromise;
+        info(`Listening on port ${this.config.https}`);
+      } catch (err) {
+        error("HTTPS server failed to start:", err.message);
+        process.exit(1);
+      }
+    }
+
     if (this.config.runAsUser) {
       this.dropProcessPrivs(this.config.runAsUser);
     }
@@ -184,6 +204,7 @@ export class Reflector {
   // Event consumption
   startEventProcessing() {
     const httpServer = this.createHttpServer();
+    this.httpServer = httpServer;
     this.httpsServer = this.createHttpsServer(); // add it as a member to support cert reloading
     const fileWatcher = this.createFileWatcher();
     const certificateWatcher = this.createCertificateWatcher();
@@ -252,6 +273,10 @@ export class Reflector {
 
     const server = this.httpApi.createServer(options);
 
+    server._listenPromise = new Promise((resolve, reject) => {
+      server.once('listening', resolve);
+      server.once('error', reject);
+    });
     server.listen(this.config.http, "0.0.0.0");
 
     return server;
@@ -262,40 +287,36 @@ export class Reflector {
       return null;
     }
 
-    if (!this.config.hostnames?.length) {
-      const certificates = this.loadCertificates(
-          this.config.cert,
-          this.config.key,
-      );
+    const server = !this.config.hostnames?.length
+      ? this.httpsApi.createServer(
+          this.loadCertificates(this.config.cert, this.config.key),
+          this.fileServerLogic())
+      : (() => {
+          this.certificateContexts = Object.fromEntries(
+            this.config.hostnames.map((host) => [
+              host.hostname,
+              this.loadCertificates(host.cert, host.key),
+            ]),
+          );
+          const defaultContext =
+            this.certificateContexts[this.config.hostnames[0].hostname];
+          return this.httpsApi.createServer({
+            ...defaultContext,
+            SNICallback: (servername, callback) => {
+              const context =
+                this.certificateContexts[servername] ||
+                this.certificateContexts[this.config.hostnames[0].hostname];
+              callback(null, this.tls.createSecureContext(context));
+            },
+          });
+        })();
 
-      return this.httpsApi
-          .createServer(certificates, this.fileServerLogic())
-          .listen(this.config.https, "0.0.0.0");
-    }
-
-    // add a member
-    this.certificateContexts = Object.fromEntries(
-        this.config.hostnames.map((host) => [
-          host.hostname,
-          this.loadCertificates(host.cert, host.key),
-        ]),
-    );
-
-    const defaultContext =
-        this.certificateContexts[this.config.hostnames[0].hostname];
-
-    return this.httpsApi
-        .createServer({
-              ...defaultContext,
-              SNICallback: (servername, callback) => {
-                const context =
-                    this.certificateContexts[servername] ||
-                    this.certificateContexts[this.config.hostnames[0].hostname];
-
-                callback(null, this.tls.createSecureContext(context));
-              },
-            })
-        .listen(this.config.https, "0.0.0.0");
+    server._listenPromise = new Promise((resolve, reject) => {
+      server.once('listening', resolve);
+      server.once('error', reject);
+    });
+    server.listen(this.config.https, "0.0.0.0");
+    return server;
   }
 
   createFileWatcher() {

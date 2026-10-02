@@ -95,6 +95,21 @@ else
     log "=== package.json unchanged, skipping npm install ==="
 fi
 
+# Fix service file if it still references the old server.js or wrong user
+SERVICE_FILE="/etc/systemd/system/simpatico.service"
+if [[ -f "$SERVICE_FILE" ]]; then
+    if grep -q 'server.js' "$SERVICE_FILE"; then
+        log "=== Updating service file to reflector.js ==="
+        sed -i 's/server.js/reflector.js/g' "$SERVICE_FILE"
+        sed -i 's/^User=.*/User=root/' "$SERVICE_FILE"
+        systemctl daemon-reload
+    elif ! grep -q '^User=root' "$SERVICE_FILE"; then
+        log "=== Updating service file User=root ==="
+        sed -i 's/^User=.*/User=root/' "$SERVICE_FILE"
+        systemctl daemon-reload
+    fi
+fi
+
 # Restart service if it exists and is enabled
 if systemctl is-enabled --quiet simpatico 2>/dev/null; then
     log "=== Restarting simpatico service ==="
