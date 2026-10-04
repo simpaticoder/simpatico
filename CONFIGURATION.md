@@ -301,7 +301,7 @@ Each hostname can have its own header, footer, and default imports for literate 
 **Example directory structure for a custom site:**
 
 ```
-/var/www/joshrehman.com/
+/var/www/example.com/
 ├── lib/
 │   ├── litmd-header.html    # Custom header (optional)
 │   ├── litmd-footer.html    # Custom footer (optional)
