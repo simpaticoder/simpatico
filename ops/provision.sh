@@ -105,6 +105,20 @@ provision_users() {
     # Service user
     if user_exists "$SERVICE_USER"; then log_skip "Service user $SERVICE_USER exists"
     else log_do "Creating service user $SERVICE_USER"; adduser --gecos "" --disabled-password --shell /bin/bash "$SERVICE_USER"; fi
+    # documentRoots often live under the admin home (e.g. /home/josh/site).
+    # Ubuntu 24.04 creates home directories mode 0750, so the service user
+    # cannot traverse them and the server returns silent 404s. Add the service
+    # user to the admin group and grant group traverse to the admin home.
+    if getent group "$ADMIN_USER" >/dev/null 2>&1; then
+        if id -nG "$SERVICE_USER" 2>/dev/null | grep -qw "$ADMIN_USER"; then
+            log_skip "Service user $SERVICE_USER already in $ADMIN_USER group"
+        else
+            log_do "Adding $SERVICE_USER to $ADMIN_USER group"; usermod -aG "$ADMIN_USER" "$SERVICE_USER"
+        fi
+    fi
+    if [[ -d "/home/$ADMIN_USER" ]] && ! find "/home/$ADMIN_USER" -maxdepth 0 -perm -g+x 2>/dev/null | grep -q .; then
+        log_do "Granting group traverse to /home/$ADMIN_USER"; chmod g+x "/home/$ADMIN_USER"
+    fi
     # GitHub known_hosts
     local service_ssh_dir="/home/$SERVICE_USER/.ssh" known_hosts="/home/$SERVICE_USER/.ssh/known_hosts"
     mkdir -p "$service_ssh_dir"

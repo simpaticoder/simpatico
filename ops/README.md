@@ -13,6 +13,7 @@ All shell scripts are **idempotent** — safe to run multiple times.
 | `sync-config.sh` | Copies `server.config.json` to the remote server. |
 | `upgrade-node.sh` | Upgrades Node.js with automatic rollback if the service fails to start. |
 | `fix-certs.sh` | Switches existing certbot certs from `standalone` to `webroot` and tests renewal. |
+| `check-document-roots.sh` | Verifies each configured `documentRoot` is readable by the service user and fixes permissions (e.g. 0750 home directories). |
 
 ## Configuration
 

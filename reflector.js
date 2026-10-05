@@ -189,6 +189,8 @@ export class Reflector {
       this.dropProcessPrivs(this.config.runAsUser);
     }
 
+    this.validateDocumentRoots();
+
     info(
       `Initialization complete. Open ${this.config.baseUrl}/${path.relative(
         process.cwd(),
@@ -741,28 +743,66 @@ export class Reflector {
     }
 
     try {
-      // Drop supplementary groups, then group, then user privileges.
-      // This order is critical: once setuid() is called, we lose CAP_SETUID
-      // and can no longer call setgid() or setgroups().
-      process.setgroups([]);
+      // Resolve numeric uid/gid from the password database. Using numeric IDs
+      // avoids relying on libc name lookups for setgid() and lets us call
+      // initgroups() to preserve the target user's supplementary groups. That
+      // matters when a documentRoot lives in another user's home and is made
+      // readable via a shared group rather than world access.
+      const entry = execSync(`getent passwd ${user}`, { encoding: "utf8" }).trim();
+      const [, , uid, gid] = entry.split(":");
+      const numericUid = parseInt(uid, 10);
+      const numericGid = parseInt(gid, 10);
 
-      // Try setgid with the user string first. If that fails (e.g.
-      // 'nobody' user exists but no 'nobody' group), try the numeric
-      // GID from the password database.
-      try {
-        process.setgid(user);
-      } catch {
-        // On failure, look up the user's GID from the passwd database
-        const { execSync } = require("node:child_process");
-        const entry = execSync(`getent passwd ${user}`, { encoding: "utf8" }).trim();
-        const gid = parseInt(entry.split(":")[3], 10);
-        process.setgid(gid);
+      if (!Number.isInteger(numericUid) || !Number.isInteger(numericGid)) {
+        throw new Error(`could not resolve uid/gid for user '${user}'`);
       }
 
-      process.setuid(user);
+      // This order is critical: once setuid() is called we lose CAP_SETUID
+      // and can no longer call initgroups()/setgid(). initgroups() replaces
+      // the supplementary group list with the target user's groups from
+      // /etc/group (setgroups([]) would discard them).
+      process.initgroups(user, numericGid);
+      process.setgid(numericGid);
+      process.setuid(numericUid);
+
       info(`dropProcessPrivs succeeded to user ${user} (uid=${process.getuid()}, gid=${process.getgid()})`);
     } catch (err) {
-      error(`dropProcessPrivs failed for user ${user}:`, err.message);
+      console.error(`dropProcessPrivs failed for user ${user}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Verify that every configured documentRoot can actually be read by the
+   * (possibly privilege-dropped) server process. `fs.existsSync()` returns
+   * false on EACCES just like it does for a missing file, so a documentRoot
+   * that is unreadable due to permissions otherwise fails silently as a 404.
+   * Surfacing it at startup turns a confusing 404 into an actionable log line.
+   */
+  validateDocumentRoots() {
+    const documentRoots = getWatchPaths(this.config);
+    const constants = this.fs.constants ?? fs.constants;
+    const accessSync = this.fs.accessSync
+      ? this.fs.accessSync.bind(this.fs)
+      : fs.accessSync.bind(fs);
+
+    for (const documentRoot of documentRoots) {
+      const absoluteDocumentRoot = path.isAbsolute(documentRoot)
+        ? documentRoot
+        : path.join(process.cwd(), documentRoot);
+
+      try {
+        accessSync(
+          absoluteDocumentRoot,
+          constants.R_OK | constants.X_OK,
+        );
+      } catch (err) {
+        console.error(
+          `WARNING: documentRoot '${absoluteDocumentRoot}' is not accessible by ` +
+            `uid=${process.getuid()} gid=${process.getgid()} (${err.code || err.message}). ` +
+            `Requests for this host will return 404. Check traverse/read permissions on ` +
+            `the path and its parent directories, or adjust runAsUser.`,
+        );
+      }
     }
   }
 

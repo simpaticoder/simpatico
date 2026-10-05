@@ -378,13 +378,15 @@ The server will detect the certificate change and reload automatically.
 
 1. **Privileged Ports**: Binding to ports 80 and 443 requires root/sudo. Use `runAsUser` to drop privileges after binding.
 
-2. **File Permissions**: Ensure certificate files are readable by the user the server runs as:
+2. **documentRoot Permissions**: After dropping privileges the server reads files as the `runAsUser` account. Every `documentRoot` — and every parent directory in its path — must be traversable and readable by that user. Ubuntu 24.04 creates home directories mode `0750`, so a site stored under another user's home (e.g. `/home/josh/mysite`) is unreadable by the service user and returns a silent 404. See [Privilege Dropping](#privilege-dropping) and the [Troubleshooting](#troubleshooting) section.
+
+3. **Certificate File Permissions**: Ensure certificate files are readable by the user the server runs as (`runAsUser`):
    ```bash
    sudo chmod 644 /etc/letsencrypt/live/*/fullchain.pem
    sudo chmod 600 /etc/letsencrypt/live/*/privkey.pem
    ```
 
-3. **ACME Challenges**: The server validates ACME token format to prevent directory traversal attacks.
+4. **ACME Challenges**: The server validates ACME token format to prevent directory traversal attacks.
 
 ## Troubleshooting
 
@@ -403,6 +405,25 @@ sudo kill -9 <PID>
 Check certificate files exist and are readable:
 ```bash
 sudo ls -la /etc/letsencrypt/live/example.com/
+```
+
+### 404 for a Hostname Even Though the Files Exist
+
+If a hostname returns 404 for every path but its `documentRoot` exists, the
+service user (`runAsUser`) probably cannot read it. On Ubuntu 24.04 home
+directories are mode `0750` by default, so a `documentRoot` under another user's
+home is inaccessible. Check the service logs for the startup warning:
+
+```bash
+journalctl -u simpatico | grep -i documentRoot
+```
+
+Then run the fixer, or apply the permission manually and restart:
+
+```bash
+./ops/check-document-roots.sh
+# or
+sudo chmod o+x /home/josh
 ```
 
 ### Debug Mode
@@ -487,4 +508,41 @@ Use the `runAsUser` option to drop privileges after binding to privileged ports 
   "https": 443,
   "runAsUser": "www-data"
 }
+```
+
+Because the server serves files as this user, **every `documentRoot` must be
+traversable and readable by it, including all of its parent directories.** This
+is easy to get wrong: Ubuntu 24.04 creates home directories with mode `0750`
+(`/etc/adduser.conf`), so a site stored under another user's home — for example
+`/home/josh/mysite` — is unreadable by a service user such as `simpatico`.
+
+`fs.existsSync()` treats a permission error (`EACCES`) exactly like a missing
+file, so the server answers **404 for every path in that host** instead of
+reporting a permission problem. At startup the server now logs a warning for any
+unreadable `documentRoot`:
+
+```
+WARNING: documentRoot '/home/josh/mysite' is not accessible by uid=... gid=... (EACCES).
+Requests for this host will return 404. Check traverse/read permissions ...
+```
+
+Fix it with the ops script (idempotent, runs over SSH):
+
+```bash
+./ops/check-document-roots.sh
+```
+
+or manually with the least-privilege group approach:
+
+```bash
+sudo usermod -aG josh simpatico
+sudo chmod g+x /home/josh
+sudo systemctl restart simpatico
+```
+
+Alternatively, grant traverse-only access through the home directory (no
+listing/read of its contents):
+
+```bash
+sudo chmod o+x /home/josh
 ```
