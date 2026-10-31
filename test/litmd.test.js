@@ -183,3 +183,24 @@ test("default imports are prepended and mapped to the block start", () => {
   const blockStart = markdown.split("\n").indexOf("const x = 1;");
   assert.equal(decoded[0][0].sourceLine, blockStart);
 });
+
+test("languages sharing a prefix with an executable type are not executed", () => {
+  // `json` starts with `js`; a naive prefix match would run JSON as a module.
+  const markdown = [
+    "```json",
+    '{ "http": 8080 }',
+    "```",
+    "",
+    "```js",
+    "const survived = true;",
+    "```",
+  ].join("\n");
+
+  const html = render(markdown);
+  const scripts = extractScripts(html);
+
+  assert.equal(scripts.length, 1, "only the JS block may become a module");
+  assert.match(scripts[0], /const survived = true;/);
+  assert.doesNotMatch(scripts[0], /"http": 8080/);
+  assert.match(html, /class="json language-json"/, "JSON stays a display block");
+});

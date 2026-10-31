@@ -268,6 +268,116 @@ test("handleFileRequest serves a file", () => {
   assert.equal(result.status, 200);
 });
 
+test("handleFileRequest compiles a ?module= request to JavaScript", () => {
+  const source = [
+    "# View",
+    "",
+    "```js",
+    "/// @module field",
+    "export const createField = () => 'field';",
+    "```",
+  ].join("\n");
+
+  const fsApi = {
+    existsSync(file) {
+      return file === "/site/view.md";
+    },
+    readFileSync() {
+      return Buffer.from(source);
+    },
+  };
+
+  const reflector = makeReflector({ fsApi });
+  const res = makeResponse();
+
+  const result = reflector.handleFileRequest(
+    makeRequest("/view?module=field"),
+    res,
+  );
+
+  assert.equal(res.status, 200);
+  assert.equal(result.status, 200);
+  assert.equal(result.moduleName, "field");
+  assert.equal(res.headers["Content-Type"], "application/javascript");
+  assert.equal(res.headers["Content-Encoding"], undefined);
+  assert.ok(res.body.includes("export const createField"), "body is the module source");
+  assert.ok(!res.body.includes("/// @module"), "directive is stripped");
+  assert.ok(res.body.includes("from view.md"), "header names the source .md");
+  assert.ok(
+    res.body.includes("sourceMappingURL=data:application/json"),
+    "module carries a source map",
+  );
+});
+
+test("handleFileRequest serves css, html, and svg resources with their types", () => {
+  const source = [
+    "# View",
+    "",
+    "```css",
+    "/*** @module styles",
+    ".a { color: red; }",
+    "```",
+    "",
+    "```html",
+    "<!--- @module help",
+    "<p>hi</p>",
+    "```",
+    "",
+    "```svg",
+    "@module badge",
+    "<svg/>",
+    "```",
+  ].join("\n");
+
+  const fsApi = {
+    existsSync(file) {
+      return file === "/site/view.md";
+    },
+    readFileSync() {
+      return Buffer.from(source);
+    },
+  };
+
+  const cases = [
+    ["styles", "css", "text/css", ".a { color: red; }"],
+    ["help", "html", "text/html", "<p>hi</p>"],
+    ["badge", "svg", "image/svg+xml", "<svg/>"],
+  ];
+
+  for (const [name, type, contentType, needle] of cases) {
+    const reflector = makeReflector({ fsApi });
+    const res = makeResponse();
+    const result = reflector.handleFileRequest(makeRequest(`/view?module=${name}`), res);
+
+    assert.equal(res.status, 200, `${name} status`);
+    assert.equal(res.headers["Content-Type"], contentType, `${name} content type`);
+    assert.equal(result.resourceType, type, `${name} resource type`);
+    assert.ok(res.body.includes(needle), `${name} body`);
+  }
+});
+
+test("handleFileRequest returns 404 for an unknown markdown module", () => {
+  const fsApi = {
+    existsSync(file) {
+      return file === "/site/view.md";
+    },
+    readFileSync() {
+      return Buffer.from("# View\n\n```js\n/// @module field\n```\n");
+    },
+  };
+
+  const reflector = makeReflector({ fsApi });
+  const res = makeResponse();
+
+  const result = reflector.handleFileRequest(
+    makeRequest("/view?module=missing"),
+    res,
+  );
+
+  assert.equal(res.status, 404);
+  assert.equal(result.status, 404);
+});
+
 test("handleFileRequest returns 304 for matching ETag", () => {
   const fsApi = {
     existsSync(file) {

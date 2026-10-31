@@ -35,6 +35,7 @@ if [[ $# -ge 1 && "$1" == *@* ]]; then
 
     # Create a combined script with config + provisioning code
     TMPFILE=$(mktemp)
+    # shellcheck disable=SC2064
     trap "rm -f $TMPFILE" EXIT
     {
         echo '#!/usr/bin/env bash'

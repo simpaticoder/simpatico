@@ -6,7 +6,7 @@ import tls from "node:tls";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { execSync } from "node:child_process";
 
 import { WebSocketServer } from "ws";
@@ -16,6 +16,8 @@ import { debug, error, hasProp, info, log, mapObject } from "./lib/core.js";
 
 import { combine } from "./lib/combine.js";
 import buildHtmlFromLiterateMarkdown from "./lib/litmd.js";
+import { compileMarkdownModule } from "./lib/litmd-modules.js";
+import { markdownSourceUrl } from "./lib/litmd-sourcemap.js";
 import { findRecentFile } from "./lib/find-recent-file.js";
 import SecureWebSocketServer from "./lab/websocket/SecureWebSocketServer.js";
 
@@ -32,7 +34,6 @@ import {
   litmdConfigForRequest,
   makeStatus,
   mergeConfig,
-  replaceSubResourceLinks,
   sha256,
   urlToFileName,
 } from "./reflector-core.js";
@@ -121,6 +122,20 @@ export function loadConfig({
   config.litmd = buildLitmdConfig(config, packageJson, now);
 
   return config;
+}
+
+/**
+ * Pull the `module` query parameter out of a request URL.
+ *
+ * @param {string} url
+ * @returns {string|null}
+ */
+export function moduleNameFromUrl(url) {
+  const queryStart = url.indexOf("?");
+  if (queryStart === -1) return null;
+
+  const params = new URLSearchParams(url.slice(queryStart + 1));
+  return params.get("module");
 }
 
 export class Reflector {
@@ -543,6 +558,15 @@ export class Reflector {
       };
     }
 
+    // A markdown file can also be the source of loadable ES modules. Request
+    // /lab/viz.md?module=field to get the `@module field` fence compiled as
+    // JavaScript, so other literate pages can `import` it directly.
+    const moduleName = moduleNameFromUrl(req.url);
+
+    if (moduleName && fileName.endsWith(".md")) {
+      return this.respondWithModule(req, res, fileName, moduleName, started);
+    }
+
     let entry;
 
     try {
@@ -579,6 +603,94 @@ export class Reflector {
       bytes: entry.data.length,
       duration: performance.now() - started,
     };
+  }
+
+  /**
+   * Compile and serve one named `@module` from a markdown file.
+   *
+   * @param {import("node:http").IncomingMessage} req
+   * @param {import("node:http").ServerResponse} res
+   * @param {string} fileName - resolved path to the .md source
+   * @param {string} moduleName - value of the ?module= query parameter
+   * @param {number} started - performance.now() of request start
+   */
+  respondWithModule(req, res, fileName, moduleName, started) {
+    const { documentRoot } = litmdConfigForRequest(this.config, req);
+    let compiled;
+
+    try {
+      compiled = this.getMarkdownModule(fileName, moduleName, documentRoot);
+    } catch (err) {
+      const status = err.code || 500;
+
+      res.writeHead(status);
+      res.end(`Could not compile module '${moduleName}': ${err.message}\n`);
+
+      return { status, fileName, moduleName };
+    }
+
+    const { code, contentType, type } = compiled;
+    const hash = sha256(code);
+
+    if (req.headers["if-none-match"] === hash) {
+      res.writeHead(304);
+      res.end();
+
+      return { status: 304, fileName, moduleName, hash };
+    }
+
+    const headers = getResponseHeaders(fileName, code, this.config);
+    headers["Content-Type"] = contentType;
+    delete headers["Content-Encoding"];
+
+    res.writeHead(200, headers);
+    res.end(code);
+
+    return {
+      status: 200,
+      fileName,
+      moduleName,
+      resourceType: type,
+      hash,
+      bytes: code.length,
+      duration: performance.now() - started,
+    };
+  }
+
+  /**
+   * Read and compile a named module, memoized per file + module name. The
+   * cache key shares the file path prefix so `invalidateFile` clears every
+   * compiled module whenever the markdown changes.
+   *
+   * @param {string} fileName
+   * @param {string} moduleName
+   * @returns {{name: string, type: string, contentType: string, code: string}}
+   */
+  getMarkdownModule(fileName, moduleName, documentRoot = this.config.documentRoot) {
+    const cacheKey = `${fileName}?module=${moduleName}`;
+
+    if (this.config.useCache && hasProp(this.cache, cacheKey)) {
+      return this.cache[cacheKey];
+    }
+
+    const raw = this.fs.readFileSync(fileName, "utf-8");
+    const markdown = Buffer.isBuffer(raw) ? raw.toString("utf-8") : raw;
+
+    const sourcePath = documentRoot
+      ? path.relative(documentRoot, fileName).split(path.sep).join("/")
+      : fileName;
+
+    const compiled = compileMarkdownModule(markdown, moduleName, {
+      sourcePath,
+      sourceUrl: markdownSourceUrl(fileName, documentRoot),
+      sourceContent: markdown,
+    });
+
+    if (this.config.useCache) {
+      this.cache[cacheKey] = compiled;
+    }
+
+    return compiled;
   }
 
   getResource(fileName, request) {
@@ -647,7 +759,13 @@ export class Reflector {
       ? fileName
       : path.join(process.cwd(), fileName);
 
-    delete this.cache[absolutePath];
+    // A markdown file may own several compiled modules keyed as
+    // `<path>?module=<name>`; drop them all together.
+    for (const key of Object.keys(this.cache)) {
+      if (key === absolutePath || key.startsWith(`${absolutePath}?module=`)) {
+        delete this.cache[key];
+      }
+    }
 
     const { baseUrl, urlPath } = getFileUrlInfo(absolutePath, this.config);
 
@@ -829,5 +947,5 @@ export class Reflector {
 // Process entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   const reflector = new Reflector();
-  reflector.initialize().then((r) => {});
+  reflector.initialize().then(() => {});
 }
