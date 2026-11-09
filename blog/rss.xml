@@ -4,6 +4,12 @@
         <title>Simpatico developer blog</title>
         <link>blog/</link>
         <description>Making software, together</description>
+        <item>
+            <title>The Saddle Earth</title>
+            <link>blog/saddle-earth.md</link>
+            <description>A satirical third option between flat and globe — the Earth as a Poincaré disk, and why "locally flat" is the greatest con ever pulled on a geography class</description>
+            <pubDate>Mon, 02 Nov 2026 00:00:00 GMT</pubDate>
+        </item>
         
         <item>
             <title>Plans for Simpatico</title>

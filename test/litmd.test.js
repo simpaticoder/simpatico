@@ -204,3 +204,49 @@ test("languages sharing a prefix with an executable type are not executed", () =
   assert.doesNotMatch(scripts[0], /"http": 8080/);
   assert.match(html, /class="json language-json"/, "JSON stays a display block");
 });
+
+test("front matter renders as a metadata block and sets the document title", () => {
+  const markdown = [
+    "---",
+    "title: The Saddle Earth",
+    "date: 2026-11-02",
+    "description: A satirical third option",
+    "---",
+    "",
+    "# The Saddle Earth",
+    "",
+    "Body text.",
+  ].join("\n");
+
+  const html = render(markdown);
+
+  assert.match(html, /<title>The Saddle Earth<\/title>/);
+  assert.match(html, /<div class="frontmatter">/);
+  assert.match(html, /class="frontmatter-title">The Saddle Earth<\/h1>/);
+  assert.match(html, /class="frontmatter-date">2026-11-02<\/span>/);
+  assert.match(html, /class="frontmatter-description">A satirical third option<\/p>/);
+
+  // The subheading carries a clickable breadcrumb derived from the file path.
+  assert.match(html, /class="frontmatter-path">/);
+  assert.match(html, /<a href="\/test\/">test<\/a>/);
+  assert.match(html, /<a href="\/test\/fixture\.md">fixture<\/a>/);
+
+  // The raw keys must not leak into the body, and the duplicated body H1
+  // is dropped (so there is exactly one title heading).
+  assert.doesNotMatch(html, /description: A satirical third option/);
+  assert.equal((html.match(/The Saddle Earth<\/h1>/g) || []).length, 1);
+  assert.match(html, /<p>Body text\.<\/p>/);
+});
+
+test("a leading rule without key/value lines is not treated as front matter", () => {
+  const markdown = ["---", "just some text", "---", "", "Body"].join("\n");
+  const html = render(markdown);
+  assert.doesNotMatch(html, /class="frontmatter"/);
+});
+
+test("documents without front matter are unchanged", () => {
+  const markdown = ["# Title", "", "Body text."].join("\n");
+  const html = render(markdown);
+  assert.doesNotMatch(html, /class="frontmatter"/);
+  assert.match(html, /<h1 id="title">Title<\/h1>/);
+});

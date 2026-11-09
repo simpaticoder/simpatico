@@ -82,6 +82,48 @@
         text-decoration: underline;
     }
 
+    /* Front matter metadata block */
+    .frontmatter {
+        margin: 0 0 28px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--borderColor-muted, #d8dee4);
+    }
+
+    .frontmatter .frontmatter-title {
+        margin: 0 0 6px;
+        padding-bottom: 0;
+        border-bottom: none;
+        font-size: 2.25em;
+        line-height: 1.25;
+    }
+
+    .frontmatter .frontmatter-meta {
+        margin: 0;
+        font-size: 0.9em;
+        color: var(--fgColor-muted, #59636e);
+    }
+
+    .frontmatter .frontmatter-path a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .frontmatter .frontmatter-path a:hover {
+        text-decoration: underline;
+    }
+
+    .frontmatter .frontmatter-sep {
+        padding: 0 0.35em;
+        opacity: 0.6;
+    }
+
+    .frontmatter .frontmatter-description {
+        margin: 12px 0 0;
+        font-size: 1.15em;
+        font-style: italic;
+        color: var(--fgColor-muted, #59636e);
+    }
+
 </style>
 <link rel="stylesheet" href="{{specialPathPrefix}}vendor/highlight.github-dark.css">
 <style>
