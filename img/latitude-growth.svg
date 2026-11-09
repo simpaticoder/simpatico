@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 390" width="620" height="390" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+          .axis{stroke:#94a3b8;stroke-width:1.5}
+          .grid{stroke:#e2e8f0;stroke-width:1}
+          .tick{font-size:12px;fill:#64748b}
+          .axlbl{font-size:14px;fill:#334155}
+          .euc{fill:none;stroke:#94a3b8;stroke-width:2.5;stroke-dasharray:7 6}
+          .hyp{fill:none;stroke:#f59e0b;stroke-width:3}
+          .leg{font-size:13px}
+        </style>
+<line class="grid" x1="70" y1="320" x2="570" y2="320"/>
+<text class="tick" x="60" y="324" text-anchor="end">0</text>
+<line class="grid" x1="70" y1="236.92" x2="570" y2="236.92"/>
+<text class="tick" x="60" y="240.92" text-anchor="end">20</text>
+<line class="grid" x1="70" y1="153.85" x2="570" y2="153.85"/>
+<text class="tick" x="60" y="157.85" text-anchor="end">40</text>
+<line class="grid" x1="70" y1="70.77" x2="570" y2="70.77"/>
+<text class="tick" x="60" y="74.77" text-anchor="end">60</text>
+<line class="grid" x1="236.67" y1="320" x2="236.67" y2="50"/>
+<text class="tick" x="236.67" y="338" text-anchor="middle">1</text>
+<line class="grid" x1="403.33" y1="320" x2="403.33" y2="50"/>
+<text class="tick" x="403.33" y="338" text-anchor="middle">2</text>
+<line class="grid" x1="570" y1="320" x2="570" y2="50"/>
+<text class="tick" x="570" y="338" text-anchor="middle">3</text>
+<line class="axis" x1="70" y1="320" x2="570" y2="320"/>
+<line class="axis" x1="70" y1="320" x2="70" y2="50"/>
+<polyline class="euc" points="70,320 153.33,306.95 236.67,293.9 320,280.85 403.33,267.8 486.67,254.75 570,241.7"/><polyline class="hyp" points="70,320 153.33,306.4 236.67,289.33 320,264.43 403.33,225.34 486.67,162.09 570,58.54"/>
+<text class="axlbl" x="320.0" y="372" text-anchor="middle">radius r</text>
+<text class="axlbl" x="18" y="185.0" text-anchor="middle" transform="rotate(-90 18 185.0)">circumference C</text>
+<line class="hyp" x1="360" y1="70" x2="400" y2="70"/><text class="leg" x="410" y="74" fill="#b45309">C = 2&#960; sinh r  (hyperbolic)</text>
+<line class="euc" x1="360" y1="94" x2="400" y2="94"/><text class="leg" x="410" y="98" fill="#64748b">C = 2&#960;r  (flat)</text>
+</svg>

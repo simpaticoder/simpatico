@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 430" width="520" height="430" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+          .euclid{fill:none;stroke:#cbd5e1;stroke-width:2;stroke-dasharray:6 6}
+          .geo{fill:none;stroke:#f59e0b;stroke-width:3}
+          .angle{fill:none;stroke:#0ea5e9;stroke-width:2}
+          .vtx{font-size:18px;font-weight:600;fill:#0f172a}
+          .eq{font-size:15px;fill:#475569}
+        </style>
+<polygon class="euclid" points="260,70 70,340 450,340"/>
+<path class="geo" d="M 260,70 Q 198.25,220.75 70,340 Q 260,308.5 450,340 Q 321.75,220.75 260,70 Z"/>
+<path class="angle" d="M 244,96 A 30 30 0 0 1 276,96"/>
+<path class="angle" d="M 100,334 A 30 30 0 0 1 84,312"/>
+<path class="angle" d="M 420,334 A 30 30 0 0 0 436,312"/>
+<text class="vtx" x="260" y="52" text-anchor="middle">&#945;</text>
+<text class="vtx" x="56" y="362" text-anchor="middle">&#946;</text>
+<text class="vtx" x="464" y="362" text-anchor="middle">&#947;</text>
+<text class="eq" x="20" y="30">&#945; + &#946; + &#947; &lt; 180&#176;</text>
+<text class="eq" x="20" y="52">deficit = area</text>
+<text class="eq" x="500" y="396" text-anchor="end">curved sides: hyperbolic geodesics</text>
+</svg>
