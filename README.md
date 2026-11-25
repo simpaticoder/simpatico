@@ -1,5 +1,5 @@
 # Simpatico
-The simpatico `server.js` is an http/https/websocket server. It can serve [literate markdown](/test/lit.md) without a build-step, supports [Let's Encrypt](https://letsencrypt.org/) for SSL/TLS, has privacy-preserving headers, and caches it's responses. It answers the question: what is the smallest most secure and privacy-preserving way to offer a fun, fast build-test-debug cycle for web experiments? It's kind of like [codepen.io](https://codepen.io) but where you own the files, use your own editor, can run it locally, can modify it to your taste, and even run it in production. Alternatively, it's a bit like React's [create-react-app](https://create-react-app.dev/) but without the build-step and much simpler, approachable code.
+The simpatico `reflector.js` is an http/https/websocket server. It can serve [literate markdown](/test/lit.md) without a build-step, supports [Let's Encrypt](https://letsencrypt.org/) for SSL/TLS, has privacy-preserving headers, and caches it's responses. It answers the question: what is the smallest most secure and privacy-preserving way to offer a fun, fast build-test-debug cycle for web experiments? It's kind of like [codepen.io](https://codepen.io) but where you own the files, use your own editor, can run it locally, can modify it to your taste, and even run it in production.
 
 The `simpatico` **npm module** exposes a small set of isomorphic vanilla javascript libraries with no dependencies: utility functions [`core`](/test/core), a transducer function [`combine`](/test/combine), a novel multiverse data structure [`stree`](/test/stree), and a runtime type system called [`friendly`](/test/friendly).
 
@@ -8,18 +8,18 @@ The `simpatico` **npm module** exposes a small set of isomorphic vanilla javascr
 ## Requirements
 
 1. Linux-like OS (Linux, macOS, Windows WSL)
-2. Node 17+
-3. pnpm 10+ 
+2. Node 26+
+3. pnpm 12+
 
-> **Tip:** Install requirements with [mise](https://mise.jdx.dev/) with `curl https://mise.run | sh` and then `mise use node@latest pnpm@latest` within your project directory to easily meet the runtime requirements without affecting your global toolchain. Mise (pronounced 'meez') is a modern tool that replaces and improves many version managers like `nvm`, `rvm`, and `sdkman`. No affiliation!
-> **Note** `npm` and `yarn` *may* be supported in lieu of `pnpmp`, but untested.  
+> **Tip:** Install requirements with [mise](https://mise.jdx.dev/) via `curl https://mise.run | sh`, then run `mise install` in your project directory. `mise.toml` pins the required toolchain, so this meets the runtime requirements without affecting your global toolchain. Mise (pronounced 'meez') is a modern tool that replaces and improves many version managers like `nvm`, `rvm`, and `sdkman`. No affiliation!
+> **Note** `npm` and `yarn` *may* be supported in lieu of `pnpm`, but untested.  
 > **Note** Rather than cloning this repository, consider forking this repo and cloning the fork.
 
 ## Running in Development
 ```bash
 git clone git@github.com:simpaticoder/simpatico.git
 pnpm install
-node server.js
+node reflector.js
 ```
 
 At this point you have a running simpatico server and can add/remove/modify files and they will update without a server restart.
@@ -48,9 +48,13 @@ The `make-certs` script will generate the correct files and output a `simpatico`
 
 ## Running in Production
 
-**Important note** as of 8/25/2025 dropping process privileges is not functional.
-It's not clear why but until it is, you must run `simpatico` as root.
-There is a test script, `test/test-suid.js' that reproduces the issue.
+`simpatico` binds to privileged ports first, then drops to `runAsUser` using the
+standard `initgroups()` → `setgid()` → `setuid()` order (numeric uid/gid resolved
+via `getent passwd`). This was verified working on Node 26; the earlier "not
+functional" caveat (8/25/2025) no longer applies. After the drop the process runs
+entirely as `runAsUser`, so every `documentRoot` — and each parent directory in
+its path — must be readable and traversable by that account. See
+[CONFIGURATION.md](CONFIGURATION.md#privilege-dropping).
 
 ### Privileged Ports
 

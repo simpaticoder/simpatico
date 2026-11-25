@@ -1,4 +1,3 @@
-private
 node_modules
 **/*.pem
 server.config.json
@@ -8,11 +7,3 @@ ops/provision.conf
 .idea/
 .vscode/
 *.iml
-*.sublime-project
-*.sublime-workspace
-.project
-.classpath
-.settings/
-*.swp
-*.swo
-*~

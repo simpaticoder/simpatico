@@ -222,12 +222,12 @@ test("front matter renders as a metadata block and sets the document title", () 
 
   assert.match(html, /<title>The Saddle Earth<\/title>/);
   assert.match(html, /<div class="frontmatter">/);
-  assert.match(html, /class="frontmatter-title">The Saddle Earth<\/h1>/);
-  assert.match(html, /class="frontmatter-date">2026-11-02<\/span>/);
-  assert.match(html, /class="frontmatter-description">A satirical third option<\/p>/);
+  assert.match(html, /class="doc-title">The Saddle Earth<\/h1>/);
+  assert.match(html, /<th>date<\/th><td>2026-11-02<\/td>/);
+  assert.match(html, /<th>desc<\/th><td>A satirical third option<\/td>/);
 
-  // The subheading carries a clickable breadcrumb derived from the file path.
-  assert.match(html, /class="frontmatter-path">/);
+  // The metadata table carries a clickable breadcrumb derived from the file path.
+  assert.match(html, /class="docmeta-path">/);
   assert.match(html, /<a href="\/test\/">test<\/a>/);
   assert.match(html, /<a href="\/test\/fixture\.md">fixture<\/a>/);
 

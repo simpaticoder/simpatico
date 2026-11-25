@@ -17,118 +17,194 @@
 <meta name="author" content="{{author}}">
 <link rel="stylesheet" type="text/css" href="{{specialPathPrefix}}vendor/github-markdown.css">
 <style>
+    :root {
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        --ink: #1b1f23;
+        --muted: #57606a;
+        --line: #d0d7de;
+        --line-strong: #1b1f23;
+        --bg: #ffffff;
+        --panel: #f6f8fa;
+        --accent: #0b5fff;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --ink: #e6edf3;
+            --muted: #8b949e;
+            --line: #30363d;
+            --line-strong: #e6edf3;
+            --bg: #0d1117;
+            --panel: #161b22;
+            --accent: #79c0ff;
+        }
+    }
+
+    html, body { background: var(--bg); }
+
     .markdown-body {
         box-sizing: border-box;
         min-width: 200px;
-        max-width: 980px;
+        max-width: 1080px;
         margin: 0 auto;
-        padding: 45px;
-    }
-
-    .error-background {
-        background-color: darkred;
+        padding: 18px 22px 72px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-text-size-adjust: 100%;
     }
     @media (max-width: 767px) {
-        .markdown-body {
-            padding: 15px;
-        }
-    }
-    @media (prefers-color-scheme: light) {
-        nav {
-            background-color: #ffffff;
-            color: #24292e;
-        }
-        .error-background {
-            background-color: #ab5656;
-        }
+        .markdown-body { padding: 12px 12px 48px; }
     }
 
-    /* Navigation styling */
-    nav {
-        background-color: #76b3f0; /* Light theme nav background */
-        padding: 10px;
-        border-radius: 8px;
-        margin-bottom: 20px; /* Space below navigation */
+    .markdown-body p, .markdown-body ul, .markdown-body ol,
+    .markdown-body table, .markdown-body pre, .markdown-body blockquote,
+    .markdown-body details, .markdown-body dl {
+        margin: 0.5em 0;
+    }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3,
+    .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+        margin: 1.4em 0 0.45em;
+        padding-bottom: 0.18em;
+        font-weight: 600;
+        line-height: 1.2;
+        border-bottom: 1px solid var(--line);
+    }
+    .markdown-body h1 { font-size: 1.45rem; }
+    .markdown-body h2 { font-size: 1.15rem; }
+    .markdown-body h3 { font-size: 1.02rem; }
+    .markdown-body h4, .markdown-body h5, .markdown-body h6 { font-size: 0.95rem; border-bottom: none; }
+    .markdown-body a { color: var(--accent); text-decoration: none; }
+    .markdown-body a:hover { text-decoration: underline; }
+    .markdown-body hr { height: 2px; border: none; background: var(--line-strong); margin: 1.6em 0; }
+    .markdown-body code {
+        font-family: var(--mono);
+        font-size: 0.92em;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 0 0.28em;
+    }
+    .markdown-body pre {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 8px 10px;
+        overflow: auto;
+    }
+    .markdown-body pre code { background: none; border: none; padding: 0; font-size: 0.92em; }
+    .markdown-body table {
+        display: table;
+        width: 100%;
+        border-collapse: collapse;
+        border-spacing: 0;
+        font-size: 0.92em;
+    }
+    .markdown-body table th, .markdown-body table td {
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+    }
+    .markdown-body table thead th { background: var(--panel); }
+    .markdown-body table tr, .markdown-body table tr:nth-child(2n) { background: none; }
+    .markdown-body blockquote {
+        padding: 0 0 0 10px;
+        border-left: 2px solid var(--line);
+        color: var(--muted);
+    }
+    .markdown-body summary { cursor: pointer; color: var(--muted); }
+    .markdown-body img { max-width: 100%; }
+
+    /* masthead: brand + table-like nav row */
+    .masthead { border-bottom: 2px solid var(--line-strong); margin: 0 0 16px; }
+    .masthead-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4px 16px;
+    }
+    .brand { font-weight: 700; letter-spacing: 0.02em; color: var(--ink); text-decoration: none; }
+    .brand::before { content: "$ "; color: var(--muted); font-weight: 400; }
+    .nav { display: flex; flex-wrap: wrap; }
+    .nav a { color: var(--muted); text-decoration: none; padding: 0 9px; border-left: 1px solid var(--line); }
+    .nav a:first-child { border-left: none; }
+    .nav a:hover { color: var(--ink); text-decoration: underline; }
+
+    /* document title + metadata table */
+    .doc-title {
+        margin: 0 0 8px;
+        padding-bottom: 6px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        line-height: 1.15;
+        border-bottom: 1px solid var(--line);
+    }
+    table.docmeta { width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 0.85rem; }
+    table.docmeta th, table.docmeta td {
+        padding: 2px 8px;
+        border: none;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+    }
+    table.docmeta th {
+        width: 1px;
+        white-space: nowrap;
+        color: var(--muted);
+        font-weight: 400;
+        text-transform: lowercase;
+    }
+    table.docmeta td.docmeta-path a { color: var(--muted); }
+    table.docmeta td.docmeta-path a:hover { color: var(--ink); }
+
+    /* table of contents */
+    table.toc { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 0.85rem; }
+    table.toc caption {
+        text-align: left;
+        color: var(--muted);
+        padding: 2px 0 4px;
+        text-transform: lowercase;
+        letter-spacing: 0.05em;
+    }
+    table.toc td { padding: 1px 8px; border: none; vertical-align: top; }
+    table.toc td.toc-num { width: 1px; white-space: nowrap; color: var(--muted); text-align: right; }
+    table.toc a { color: var(--ink); text-decoration: none; }
+    table.toc a:hover { text-decoration: underline; }
+
+    /* click-to-reveal definition popups */
+    span[title] { border-bottom: 1px dotted var(--muted); cursor: help; }
+    .dialog {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        max-width: 90vw;
+        padding: 8px 12px;
+        z-index: 10;
+        background: var(--panel);
+        color: var(--ink);
+        border: 1px solid var(--line);
     }
 
-    @media (prefers-color-scheme: dark) {
-        nav {
-            background-color: #161b22; /* Dark theme nav background */
-        }
+    /* colophon */
+    .colophon {
+        margin-top: 36px;
+        padding-top: 6px;
+        border-top: 2px solid var(--line-strong);
+        color: var(--muted);
+        font-size: 0.8rem;
     }
+    .colophon p { margin: 0; }
 
-    @media (prefers-color-scheme: light) {
-        .markdown-body{
-            --bgColor-muted: #0b2c4d;
-        }
-    }
+    .error-background { background-color: darkred; }
+    @media (prefers-color-scheme: light) { .error-background { background-color: #ab5656; } }
 
-
-    nav ul {
-        list-style: none; /* Remove bullets */
-        padding: 0; /* Remove default padding */
-        margin: 0; /* Remove default margin */
-        display: flex; /* Display links horizontally */
-        gap: 15px; /* Space between links */
-    }
-
-    nav a {
-        text-decoration: none;
-        color: inherit; /* Inherit text color from theme */
-        padding: 5px 10px;
-    }
-
-    nav a:hover {
-        text-decoration: underline;
-    }
-
-    /* Front matter metadata block */
-    .frontmatter {
-        margin: 0 0 28px;
-        padding-bottom: 18px;
-        border-bottom: 1px solid var(--borderColor-muted, #d8dee4);
-    }
-
-    .frontmatter .frontmatter-title {
-        margin: 0 0 6px;
-        padding-bottom: 0;
-        border-bottom: none;
-        font-size: 2.25em;
-        line-height: 1.25;
-    }
-
-    .frontmatter .frontmatter-meta {
-        margin: 0;
-        font-size: 0.9em;
-        color: var(--fgColor-muted, #59636e);
-    }
-
-    .frontmatter .frontmatter-path a {
-        color: inherit;
-        text-decoration: none;
-    }
-
-    .frontmatter .frontmatter-path a:hover {
-        text-decoration: underline;
-    }
-
-    .frontmatter .frontmatter-sep {
-        padding: 0 0.35em;
-        opacity: 0.6;
-    }
-
-    .frontmatter .frontmatter-description {
-        margin: 12px 0 0;
-        font-size: 1.15em;
-        font-style: italic;
-        color: var(--fgColor-muted, #59636e);
-    }
-
-</style>
-<link rel="stylesheet" href="{{specialPathPrefix}}vendor/highlight.github-dark.css">
-<style>
     html { visibility: hidden; }
 </style>
+<link rel="stylesheet" href="{{specialPathPrefix}}vendor/highlight.github-dark.css">
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         document.documentElement.style.visibility = "visible";
@@ -136,19 +212,17 @@
 </script>
 
 <body class="markdown-body">
-<header>
-    <nav>
-        <a href="{{baseUrl}}" style="float:left"><img alt="logo" src="{{specialPathPrefix}}img/wizard.svg" height="70"></a>
-        <a href="{{baseUrl}}"><span style="font-family: 'Arial', sans-serif; font-size: 30px; font-variant: all-small-caps; color: #eee; margin-left: 10px;">{{hostname}}</span></a><br>
-        <a href="{{baseUrl}}"><span style="font-family: 'Arial', sans-serif; font-size: 30px; color: #eee; margin-left: 10px;">{{title}}</span></a>
-        <ul class="nav-menu">
-            <li>&nbsp;
-            <li><a href="/">Home</a>
-            <li><a href="{{specialPathPrefix}}test/">Examples</a>
-            <li><a href="/blog/">Blog</a>
-            <li><a href="/lab/">Lab</a>
-            <li><a href="https://www.github.com/simpaticoder/simpatico/" target="_blank">Github ↗</a>
-        </ul>
-    </nav>
+<header class="masthead">
+    <div class="masthead-row">
+        <a class="brand" href="{{baseUrl}}">simpatico</a>
+        <nav class="nav">
+            <a href="{{specialPathPrefix}}">about</a>
+            <a href="{{specialPathPrefix}}test/">libraries</a>
+            <a href="{{specialPathPrefix}}lab/">lab</a>
+            <a href="{{specialPathPrefix}}blog/">devlog</a>
+            <a href="{{specialPathPrefix}}ops/">ops</a>
+            <a href="https://www.github.com/simpaticoder/simpatico/" target="_blank">github&nbsp;↗</a>
+        </nav>
+    </div>
 </header>
 <main>
