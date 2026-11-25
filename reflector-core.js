@@ -49,6 +49,11 @@ export function isCompressedImage(fileName) {
   );
 }
 
+// Directories that are never public, whatever their depth (secrets, keys,
+// provisioning config). Compared case-insensitively so a case-insensitive
+// filesystem cannot be used to sidestep the check.
+const PROTECTED_PATH_SEGMENTS = new Set(["private"]);
+
 export function getCandidateFiles(urlPath) {
   const parts = urlPath.split("/");
   const last = parts.at(-1);
@@ -59,6 +64,13 @@ export function getCandidateFiles(urlPath) {
       `Invalid path (contains dot-prefixed segment): ${urlPath}`,
     );
     error.code = 500;
+    throw error;
+  }
+
+  if (parts.some((part) => PROTECTED_PATH_SEGMENTS.has(part.toLowerCase()))) {
+    // 404 rather than 500: do not confirm that the path exists.
+    const error = new Error(`Invalid path (protected segment): ${urlPath}`);
+    error.code = 404;
     throw error;
   }
 
@@ -126,13 +138,28 @@ export function litmdConfigForRequest(config, request) {
   };
 }
 
+// The server's own config is never public, regardless of where it lives in the
+// document root. Ignoring a file in git does not keep it off the wire; only an
+// explicit deny does.
+const PROTECTED_CONFIG_BASENAME = "server.config.json";
+
 export function urlToFileName({ url, request, config, existsSync }) {
   const urlPath = url.split("?")[0];
   const documentRoot = documentRootForRequest(config, request);
   const candidates = getCandidateFiles(urlPath);
+  const configFile = config?.configFile ? path.resolve(config.configFile) : null;
+
+  const isProtected = (fileName) =>
+    path.basename(fileName) === PROTECTED_CONFIG_BASENAME ||
+    (configFile !== null && path.resolve(fileName) === configFile);
 
   for (const candidate of candidates) {
     const fileName = documentRoot + candidate;
+
+    // Pretend it does not exist so the response is an ordinary 404.
+    if (isProtected(fileName)) {
+      continue;
+    }
 
     if (existsSync(fileName)) {
       return fileName;
@@ -186,7 +213,6 @@ export function getContentSecurityPolicyHeaders() {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",
-      "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
     ].join(";"),
   };
 }
@@ -290,7 +316,7 @@ export function makeStatus(config, runtime) {
   const memory = runtime.memoryUsage();
 
   return {
-    git: runtime.gitCommit,
+    git: runtime.git ?? null,
     node: runtime.version,
     platform: runtime.platform,
     arch: runtime.arch,

@@ -1,4 +1,4 @@
-# Operations
+    # Operations
 
 Scripts and docs for deploying and operating simpatico in production.
 

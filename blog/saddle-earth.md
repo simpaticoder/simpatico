@@ -20,17 +20,6 @@ Hyperbolic geometry is the geometry of a surface where, through any point not on
 
 If you want the whole sordid tale of how this geometry was finally discovered — and how badly it broke the mathematicians who found it — watch this first:
 
-<figure>
-  <iframe
-    width="560" height="315"
-    src="https://www.youtube-nocookie.com/embed/lFlu60qs7_4"
-    title="The line that broke mathematicians for 2000 years"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allowfullscreen></iframe>
-  <figcaption>Veritasium &#8212; <em>The line that broke mathematicians for 2000 years</em>. The two-thousand-year resistance to the parallel postulate is the same resistance the Saddle Earth faces today.</figcaption>
-</figure>
 
 The globe model has a marketing department. NASA, Google Earth, every globe in every classroom — all of them render a **sphere**, because a sphere is the only curved surface a layperson can picture without a headache. Hyperbolic geometry requires you to accept that the parallel postulate is optional, and the average geography teacher quit at "through any two points there passes exactly one line."
 

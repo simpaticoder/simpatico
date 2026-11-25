@@ -82,6 +82,16 @@ test("getCandidateFiles rejects dot-prefixed path segments", () => {
   );
 });
 
+test("getCandidateFiles rejects anything under private/", () => {
+  for (const urlPath of ["/private", "/private/", "/private/keys.pem", "/a/private/b.txt", "/PRIVATE/x"]) {
+    assert.throws(
+      () => getCandidateFiles(urlPath),
+      (error) => error.code === 404,
+      `expected ${urlPath} to be rejected`,
+    );
+  }
+});
+
 test("getCandidateFiles returns direct path for files", () => {
   assert.deepEqual(getCandidateFiles("/app.js"), ["/app.js"]);
 });
@@ -318,6 +328,50 @@ test("urlToFileName throws 404 when no candidate exists", () => {
         "/missing/index.html",
         "/missing/README.md",
       ]);
+      return true;
+    },
+  );
+});
+
+test("urlToFileName never serves the server config file", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    hostname: "localhost",
+    hostnames: null,
+    configFile: "./server.config.json",
+  };
+
+  assert.throws(
+    () =>
+      urlToFileName({
+        url: "/server.config.json",
+        config,
+        existsSync: () => true,
+      }),
+    (error) => {
+      assert.equal(error.code, 404);
+      return true;
+    },
+  );
+});
+
+test("urlToFileName protects the configured config file by its resolved path", () => {
+  const config = {
+    documentRoot: "/srv/site",
+    hostname: "localhost",
+    hostnames: null,
+    configFile: "/srv/site/private.json",
+  };
+
+  assert.throws(
+    () =>
+      urlToFileName({
+        url: "/private.json",
+        config,
+        existsSync: () => true,
+      }),
+    (error) => {
+      assert.equal(error.code, 404);
       return true;
     },
   );
@@ -576,8 +630,15 @@ test("makeStatus builds runtime status", () => {
     },
   };
 
+  const git = {
+    revision: "abc1234def5678901234567890abcdef12345678",
+    short: "abc1234",
+    branch: "main",
+    dirty: false,
+  };
+
   const runtime = {
-    gitCommit: "abc1234",
+    git,
     version: "v24.0.0",
     platform: "linux",
     arch: "x64",
@@ -590,7 +651,7 @@ test("makeStatus builds runtime status", () => {
   };
 
   assert.deepEqual(makeStatus(config, runtime), {
-    git: "abc1234",
+    git,
     node: "v24.0.0",
     platform: "linux",
     arch: "x64",

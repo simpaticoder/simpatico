@@ -1,7 +1,7 @@
 # Simpatico
 The simpatico `reflector.js` is an http/https/websocket server. It can serve [literate markdown](/test/lit.md) without a build-step, supports [Let's Encrypt](https://letsencrypt.org/) for SSL/TLS, has privacy-preserving headers, and caches it's responses. It answers the question: what is the smallest most secure and privacy-preserving way to offer a fun, fast build-test-debug cycle for web experiments? It's kind of like [codepen.io](https://codepen.io) but where you own the files, use your own editor, can run it locally, can modify it to your taste, and even run it in production.
 
-The `simpatico` **npm module** exposes a small set of isomorphic vanilla javascript libraries with no dependencies: utility functions [`core`](/test/core), a transducer function [`combine`](/test/combine), a novel multiverse data structure [`stree`](/test/stree), and a runtime type system called [`friendly`](/test/friendly).
+The `simpatico` **npm module** exposes a small set of isomorphic vanilla javascript libraries with no dependencies: utility functions [`core`](/test/core.md), a transducer function [`combine`](/test/combine.md), a novel multiverse data structure [`stree`](/test/stree.md), and a runtime type system called [`friendly`](/test/friendly.md).
 
 # Server Installation
 

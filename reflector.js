@@ -159,7 +159,7 @@ export class Reflector {
     this.cache = {};
     this.connections = {};
 
-    this.gitCommit = this.getGitCommit();
+    this.git = this.getGitInfo();
 
     this.logger = new PrettyLogger({
       output: console,
@@ -511,7 +511,7 @@ export class Reflector {
     if (req.url === "/status" || req.url === "/status/") {
       const status = makeStatus(this.config, {
         ...process,
-        gitCommit: this.gitCommit,
+        git: this.git,
       });
 
       res.writeHead(200, {
@@ -924,13 +924,16 @@ export class Reflector {
     }
   }
 
-  getGitCommit() {
+  getGitInfo() {
     try {
-      return execSync("git rev-parse --short HEAD", {
-        encoding: "utf8",
-      }).trim();
+      return {
+        revision: execSync("git rev-parse HEAD", { encoding: "utf8" }).trim(),
+        short: execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(),
+        branch: execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf8" }).trim(),
+        dirty: execSync("git status --porcelain", { encoding: "utf8" }).trim().length > 0,
+      };
     } catch {
-      return "unknown";
+      return { revision: "unknown", short: "unknown", branch: "unknown", dirty: null };
     }
   }
 

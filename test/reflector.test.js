@@ -219,7 +219,7 @@ test("handleFileRequest returns 204 for favicon.ico", () => {
 
 test("handleFileRequest returns status info", () => {
   const reflector = makeReflector();
-  reflector.gitCommit = "abc123";
+  reflector.git = { revision: "abc1234567890", short: "abc123", branch: "main", dirty: false };
   const res = makeResponse();
 
   const result = reflector.handleFileRequest(
@@ -229,7 +229,7 @@ test("handleFileRequest returns status info", () => {
 
   assert.equal(res.status, 200);
   const status = JSON.parse(res.body);
-  assert.equal(status.git, "abc123");
+  assert.equal(status.git.short, "abc123");
   assert.equal(status.hostname, "localhost");
 });
 
