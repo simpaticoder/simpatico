@@ -1,11 +1,9 @@
 ---
-title: TBD
+title: The best software shape
 date: 2026-08-11
-description: I'm done
+description: Describe the best software shape and its collision with reality
+tags: programming
 ---
-
-This will probably be a bit of a ramble. I've been busy, and away from Simpatico for too long.
-I've always found distance-in-time a useful perspective in which to assess and think about a project such as this.
 
 # The Best Software shape
 

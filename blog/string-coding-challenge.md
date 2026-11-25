@@ -2,6 +2,7 @@
 title: A String Coding Challenge
 date: 2025-08-25
 description: Finding removable indices to match strings - from O(n²) to linear time
+tags: programming
 ---
 
 @simpaticoder 2025

@@ -2,6 +2,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import { Reflector } from "../reflector.js";
 import {
@@ -266,6 +269,60 @@ test("handleFileRequest serves a file", () => {
 
   assert.equal(res.status, 200);
   assert.equal(result.status, 200);
+});
+
+// A real-fs Reflector whose document root is a temp directory.
+function tempReflector(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "simpatico-dyn-"));
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = path.join(dir, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content);
+  }
+  const reflector = makeReflector({
+    config: { documentRoot: dir, hostnames: null },
+    fsApi: {
+      existsSync: fs.existsSync,
+      readFileSync: fs.readFileSync,
+      statSync: fs.statSync,
+      readdirSync: fs.readdirSync,
+      constants: fs.constants,
+      accessSync: fs.accessSync,
+    },
+  });
+  return { reflector, dir, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+test("handleFileRequest synthesises a directory index from front matter", () => {
+  const { reflector, cleanup } = tempReflector({
+    "post.md": "---\ntitle: Hello\ndate: 2026-01-01\ntags: a\n---\nBody",
+  });
+
+  try {
+    const res = makeResponse();
+    reflector.handleFileRequest(makeRequest("/"), res);
+
+    assert.equal(res.status, 200);
+    assert.match(String(res.body), /<a href="\/post\.md">Hello<\/a>/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("handleFileRequest synthesises an rss feed for a directory", () => {
+  const { reflector, cleanup } = tempReflector({
+    "post.md": "---\ntitle: Hello\ndate: 2026-01-01\n---\nBody",
+  });
+
+  try {
+    const res = makeResponse();
+    reflector.handleFileRequest(makeRequest("/rss.xml"), res);
+
+    assert.equal(res.status, 200);
+    assert.match(String(res.body), /<link>http:\/\/localhost:8080\/post\.md<\/link>/);
+  } finally {
+    cleanup();
+  }
 });
 
 test("handleFileRequest compiles a ?module= request to JavaScript", () => {

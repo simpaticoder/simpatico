@@ -2,6 +2,7 @@
 title: The Saddle Earth
 date: 2026-11-02
 description: A satirical third option between flat and globe — the Earth as a Poincaré disk, and why "locally flat" is the greatest con ever pulled on a geography class
+tags: humor
 ---
 
 For two thousand years the debate has had exactly two sides: **flat** ("it's a plane, the ice wall is real") and **globe** ("it's a sphere, we have photos"). Both sides are wrong, and both sides are *boring*, because both assume the surface of the Earth is a constant-curvature surface whose only two options are **zero** and **positive**.

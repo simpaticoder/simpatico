@@ -2,6 +2,7 @@
 title: Programming the Set Card Game
 date: 2025-08-25
 description: Building the Set card game - deck generation, set detection, and SVG rendering
+tags: programming
 ---
 
 The game "Set" is a lovely game of pattern recognition and also teaches the player to be careful with their impulse to yell "set!" when they see one. Let's program the game.

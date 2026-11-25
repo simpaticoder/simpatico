@@ -1,7 +1,8 @@
 ---
-title: Staircase and Partial Sums Coding Challenges
+title: Staircase and Partial Sums
 date: 2025-08-25
 description: Two classic coding challenges - printing staircases and computing partial sums
+tags: programming
 ---
 
 # Print a staircase coding challenge

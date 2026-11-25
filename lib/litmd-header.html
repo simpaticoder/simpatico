@@ -160,6 +160,20 @@
     table.docmeta td.docmeta-path a { color: var(--muted); }
     table.docmeta td.docmeta-path a:hover { color: var(--ink); }
 
+    /* generated directory index */
+    table.index-table { table-layout: fixed; }
+    table.index-table th:nth-child(1),
+    table.index-table td:nth-child(1) { width: 6.5rem; white-space: nowrap; }
+    table.index-table th:nth-child(2) { width: 28%; }
+    table.index-table th:nth-child(3) { width: 12%; }
+    table.index-table td.index-desc { overflow: hidden; }
+    table.index-table td.index-desc span {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     /* table of contents */
     table.toc { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 0.85rem; }
     table.toc caption {

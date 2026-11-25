@@ -16,6 +16,7 @@ import { debug, error, hasProp, info, log, mapObject } from "./lib/core.js";
 
 import { combine } from "./lib/combine.js";
 import buildHtmlFromLiterateMarkdown from "./lib/litmd.js";
+import { collectEntries, renderFeedXml, renderIndexMarkdown, titleCase } from "./lib/index.js";
 import { compileMarkdownModule } from "./lib/litmd-modules.js";
 import { markdownSourceUrl } from "./lib/litmd-sourcemap.js";
 import { findRecentFile } from "./lib/find-recent-file.js";
@@ -25,7 +26,9 @@ import {
   buildBaseUrl,
   buildLitmdConfig,
   DEFAULT_CONFIG,
+  documentRootForRequest,
   getAcmeFileName,
+  getCandidateFiles,
   getFileUrlInfo,
   getRedirectUrl,
   getResponseHeaders,
@@ -547,6 +550,11 @@ export class Reflector {
         existsSync: (file) => this.fs.existsSync(file),
       });
     } catch (err) {
+      if (err.code === 404) {
+        const dynamic = this.tryDynamicResource(req, res, started);
+        if (dynamic) return dynamic;
+      }
+
       const status = err.code || 500;
 
       res.writeHead(status);
@@ -601,6 +609,118 @@ export class Reflector {
       fileName,
       hash: entry.hash,
       bytes: entry.data.length,
+      duration: performance.now() - started,
+    };
+  }
+
+  /**
+   * Synthesise a directory index or RSS feed when no real file exists.
+   *
+   * A trailing-slash (or extensionless directory) URL yields an index built
+   * from the front matter beneath that directory; `/dir/rss.xml` yields a
+   * feed. Only paths that pass the same gate as real files (no dot-prefixed
+   * or protected segments) are eligible.
+   *
+   * @returns {object|null} a handler result, or null to fall through to 404
+   */
+  tryDynamicResource(req, res, started) {
+    const urlPath = req.url.split("?")[0];
+
+    let kind;
+    let relDir;
+    if (urlPath === "/rss.xml" || urlPath.endsWith("/rss.xml")) {
+      kind = "feed";
+      relDir = urlPath.replace(/\/?rss\.xml$/, "");
+    } else if (/\/index\.html?$/.test(urlPath)) {
+      kind = "index";
+      relDir = urlPath.replace(/\/index\.html?$/, "");
+    } else if (urlPath.endsWith("/")) {
+      kind = "index";
+      relDir = urlPath.replace(/\/+$/, "");
+    } else if (!/\.[^/]+$/.test(urlPath)) {
+      kind = "index";
+      relDir = urlPath;
+    } else {
+      return null;
+    }
+
+    // Never synthesise for a path the static server would refuse.
+    try {
+      getCandidateFiles(urlPath);
+    } catch {
+      return null;
+    }
+
+    const documentRoot = documentRootForRequest(this.config, req);
+    const rel = relDir.replace(/^\/+|\/+$/g, "");
+    const dirAbs = rel ? path.join(documentRoot, rel) : documentRoot;
+
+    try {
+      if (!this.fs.statSync(dirAbs).isDirectory()) return null;
+    } catch {
+      return null;
+    }
+
+    const io = {
+      readdirSync: this.fs.readdirSync.bind(this.fs),
+      readFileSync: this.fs.readFileSync.bind(this.fs),
+      statSync: this.fs.statSync.bind(this.fs),
+      existsSync: this.fs.existsSync.bind(this.fs),
+    };
+
+    let entries;
+    try {
+      entries = collectEntries(dirAbs, { documentRoot, io });
+    } catch {
+      return null;
+    }
+
+    // Nothing to list: behave like any other missing path.
+    if (entries.length === 0) return null;
+
+    const dirUrl = rel ? `/${rel}/` : "/";
+    const title = rel ? titleCase(path.basename(rel)) : "Index";
+
+    let virtualName;
+    let body;
+    if (kind === "feed") {
+      virtualName = path.join(dirAbs, "rss.xml");
+      body = renderFeedXml(entries, {
+        title,
+        baseUrl: this.config.baseUrl ?? "",
+        dirUrl,
+      });
+    } else {
+      virtualName = path.join(dirAbs, "index.md");
+      body = buildHtmlFromLiterateMarkdown(
+        Buffer.from(renderIndexMarkdown(entries, { title })),
+        virtualName,
+        litmdConfigForRequest(this.config, req),
+      );
+    }
+
+    let data = Buffer.from(body);
+    if (this.config.useGzip && !isCompressedImage(virtualName)) {
+      data = zlib.gzipSync(data);
+    }
+
+    const hash = sha256(data);
+
+    if (req.headers["if-none-match"] === hash) {
+      res.writeHead(304);
+      res.end();
+
+      return { status: 304, fileName: virtualName, hash };
+    }
+
+    res.writeHead(200, getResponseHeaders(virtualName, data, this.config));
+    res.end(data);
+
+    return {
+      status: 200,
+      fileName: virtualName,
+      hash,
+      bytes: data.length,
       duration: performance.now() - started,
     };
   }
