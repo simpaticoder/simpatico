@@ -1,3 +1,9 @@
+---
+title: SVG in the Browser
+date: 2026-02-03
+description: Let us explore SVG in the browser. The default svg is 300x150 pixels, and it is scaled with the page.
+---
+
 Let us explore SVG in the browser. The default svg is 300x150 pixels, and it is scaled with the page.
 
 ```html

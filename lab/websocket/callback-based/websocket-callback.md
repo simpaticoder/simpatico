@@ -1,3 +1,9 @@
+---
+title: Callback-based WebSocket
+date: 2025-05-04
+description: A websocket built from callbacks, with encryption on top of the crypto primitives.
+---
+
 # Plan
 
 See [crypto](../crypto.md)

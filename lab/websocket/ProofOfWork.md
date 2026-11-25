@@ -1,3 +1,9 @@
+---
+title: SHA-256 Proof of Work
+date: 2025-09-04
+description: This document implements a complete SHA-256 based proof-of-work system in the browser. The system asks clients to find a nonce such that when combined with a challenge string and hashed with SHA-256, the result has a spe
+---
+
 # SHA-256 Proof of Work Implementation
 
 This document implements a complete SHA-256 based proof-of-work system in the browser. The system asks clients to find a nonce such that when combined with a challenge string and hashed with SHA-256, the result has a specified number of leading zero bits.

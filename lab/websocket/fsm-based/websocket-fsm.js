@@ -1,4 +1,4 @@
-import {CryptoUtils} from "./crypto-utils.js";
+import {CryptoUtils} from "/lib/crypto-utils.js";
 
 /**
  * MessageBus serves as a publish-subscribe messaging system, allowing different

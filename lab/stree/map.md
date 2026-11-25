@@ -1,3 +1,9 @@
+---
+title: STree Map
+date: 2026-08-11
+description: Representing parent/child relationships between plain objects to model ordered input as a tree.
+---
+
 An object `{}` can link to another object called it's parent:`{parent:{}}`.
 Many objects can share a parent `let a={}, b={parent:a}, c={parent:a}`.
 It is convenient to introduce children as well, for navigation `let a={children:[b,c]}`

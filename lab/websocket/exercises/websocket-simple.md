@@ -1,3 +1,9 @@
+---
+title: WebSocket Simple
+date: 2025-08-27
+description: A promise-based websocket facade, simple but with rough edges around message structure and asynchronous construction.
+---
+
 There are a few issues with this code (naming is inconsistent with message and packet; the structure of messages is not clear enough).
 However I like the simplicity of a promise-based solution; a full FSM always seemed like overkill. It's also clearer what operations
 are available at each state. I'm generally not a fan of dynamic listeners, however I like the use of a temporary handler to deal with 
@@ -16,9 +22,9 @@ As a matter of taste, the constructor is too long. However having ALL the initia
 </div>
 
 ```js
-import ClientSecureWebSocket from "./SecureWebSocketClient.js";
-import MockWebSocket from "./mock-websocket.js";
-import CryptoUtils from "./crypto-utils.js";
+import ClientSecureWebSocket from "/lab/websocket/SecureWebSocketClient.js";
+import MockWebSocket from "/lab/websocket/mock-websocket.js";
+import CryptoUtils from "/lib/crypto-utils.js";
 
 const { client, server } = MockWebSocket.createPair();
 const { publicKey, privateKey } = CryptoUtils.generateKeyPair();

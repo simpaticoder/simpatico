@@ -1,3 +1,9 @@
+---
+title: A Field of Falling Objects
+date: 2026-10-31
+description: An interactive toy for the question: what happens when we keep dropping objects into a field? The field is a plain SVG box. Every object is a <circle>. Gravity pulls them down, the walls and floor bounce them back, and y
+---
+
 # A Field of Falling Objects
 2026
 
@@ -16,7 +22,7 @@ for the same event stream.
 
 See:
 [home](/),
-[svg](/lab/svg.md),
+[svg](/lab/svg/svg.md),
 [event](/lab/event.md),
 [litmd](/test/lit.md).
 
@@ -284,7 +290,7 @@ looks at the control panel; it only reacts to events that arrive on itself.
 
 ```js
 /// @module field
-import * as svg from './svg.js';
+import * as svg from './svg/svg.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -640,7 +646,7 @@ space spawns, `c` clears, a click drops a circle. None of that policy lives in
 the field.
 
 ```js
-import * as svg from './svg.js';
+import * as svg from './svg/svg.js';
 import {createField, attachInput, createLog} from './viz.md?module=field';
 
 const fieldEl = svg.elt('viz-field');

@@ -336,7 +336,7 @@ Event Loop Iteration 2:
 
 ## Real-World Example: WebSocket in STree
 
-The [stree-websocket implementation](/lab/websocket/stree-based/stree-websocket.js) uses this pattern:
+The stree-websocket implementation uses this pattern:
 
 ```js
 export const send = ({ws, remote}, {msg}) => {

@@ -1,3 +1,9 @@
+---
+title: Encodings
+date: 2025-08-28
+description: The question of which encoding to use and when is a surprisingly complex topic in the context of writing a secure socket protocol. In particular, there is an asymmetry with data that originates as uint8array and that whi
+---
+
 # Encodings
 
 The question of which encoding to use and when is a surprisingly complex topic in the context of writing a secure socket protocol.

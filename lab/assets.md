@@ -1,3 +1,9 @@
+---
+title: Exported Assets
+date: 2026-10-31
+description: A markdown file is not only a page and not only a JavaScript module. The same @module directive works for CSS, HTML, and SVG, and the fenced language decides the content type the reflector serves:
+---
+
 # Exported Assets
 2026
 

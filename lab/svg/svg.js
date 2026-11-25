@@ -7,7 +7,7 @@
  * @module svg
  */
 
-import {as, getType, cast, hasProp} from '../lib/core.js';
+import {as, getType, cast, hasProp} from '/lib/core.js';
 
 /**
  * Find an element by ID or class name.

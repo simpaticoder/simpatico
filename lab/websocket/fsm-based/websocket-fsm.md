@@ -1,3 +1,9 @@
+---
+title: FSM-based WebSocket
+date: 2025-05-04
+description: Modeling the websocket handshake and message flow as a finite state machine.
+---
+
 
 # Plan
 

@@ -1,3 +1,9 @@
+---
+title: Simple WebSocket
+date: 2025-08-27
+description: A websocket is a browser-provided class that takes an endpoint string and provides a persistent object with 4 events (open, message, close, error) and 2 methods (send, close). In this example we wrap the browser websocke
+---
+
 # Simple Websocket
 
 ## Client

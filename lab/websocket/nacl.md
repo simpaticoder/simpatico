@@ -1,3 +1,9 @@
+---
+title: NaCl
+date: 2025-08-28
+description: A keypair and Diffie-Hellman walkthrough using tweetnacl instead of the WebCrypto API.
+---
+
 # This example demonstrates:
 1. Generating an Ed25519 keypair for signing
 2. ~~Deriving an X25519 keypair from the Ed25519 key with ed2curve~~

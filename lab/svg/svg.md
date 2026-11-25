@@ -1,3 +1,9 @@
+---
+title: SVG
+date: 2025-05-21
+description: Scalable Vector Graphics (SVG) is a powerful, low-entropy, programmable representation of images. This is an exploration of the tech and an experiment in a novel "scatter/gather" method of doing animation.
+---
+
 # SVG
 2024
 
@@ -36,7 +42,7 @@ __________________________________________
 
 ```js
 import * as svg from './svg.js';
-import {shuffle} from '../lib/core.js';
+import {shuffle} from '/lib/core.js';
 
 // Bind elements
 const greenSquare = svg.elt("green-square");
@@ -117,7 +123,7 @@ This is a simpler, worse version of [d3 collision demo](https://observablehq.com
 
 ```js
 import * as svg from './svg.js';
-import {shuffle} from '../lib/core.js';
+import {shuffle} from '/lib/core.js';
 
 // Bind
 const svgElement = svg.elt('particle-container');
@@ -632,7 +638,7 @@ Here is an aperiodic thing
 # Different ways to use HTML in SVG
 Clickable iframes.
 Using `foreignObject` and position a `rect` in front of the iframe to intercept the click event. Works great!
-I use this pattern in the [acceptance tests](/acceptance.md).
+I use this pattern in the [acceptance tests](/test/).
 
 ```html
 <svg xmlns="http://www.w3.org/2000/svg"

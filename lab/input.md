@@ -1,3 +1,9 @@
+---
+title: Input You Can See
+date: 2026-10-31
+description: A second lab built on the field from A Field of Falling Objects. The field itself did not change. What changed is the meaning given to input.
+---
+
 # Input You Can See
 2026
 
@@ -15,7 +21,7 @@ can point at.
 See:
 [home](/),
 [viz](/lab/viz.md),
-[svg](/lab/svg.md),
+[svg](/lab/svg/svg.md),
 [event](/lab/event.md),
 [litmd](/test/lit.md).
 

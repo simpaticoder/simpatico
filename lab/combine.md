@@ -1,5 +1,11 @@
+---
+title: Combine and Friendly Functions
+date: 2025-04-06
+description: How combine() and friendly functions fit together for validating handler arguments.
+---
+
 # Combine and friendly functions
-This convention supports the use of [friendly functions](friendly.md) to do validation on handler arguments.
+This convention supports the use of [friendly functions](/test/friendly.md) to do validation on handler arguments.
 (This will be a regular pattern in most handlers, so we will eventually move the boilerplate into combine.)
 ```js
 import { combine } from '/lib/combine.js';
@@ -63,7 +69,7 @@ assertEquals({a: 6}, combineRules({a:2},{a:3}, (a,b) => a * b));
 const mulCombine = (a,b) => combineRules(a,b,(a,b) => a * b);
 assertEquals(16, [2,2,2,2].reduce(mulCombine, 1));
 ```
-Note that in a [previous version](/notes/combine.md) combine rules were specified as a ruleset, and so easily replaced without function composition.
+Note that in a previous version combine rules were specified as a ruleset, and so easily replaced without function composition.
 
 # Message Cascade with msgs
 It is sometimes useful to expose the message cascade to calling code.
@@ -82,4 +88,4 @@ We can imagine branching our program state in a very natural way.
 This method of branching turns out to be both simpler and more expressive than either inheritance relationships or instantiation.
 This will be dealt with in the `stree` section.
 
-Continue with [stree3](./stree3.md).
+Continue with [stree](/lab/stree/stree.md).

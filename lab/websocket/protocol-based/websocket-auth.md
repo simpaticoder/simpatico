@@ -1,3 +1,9 @@
+---
+title: Protocol-based WebSocket Auth
+date: 2025-05-04
+description: A websocket auth exercise expressed as an explicit message protocol.
+---
+
 # WebSockets
 
 Exercising the basic [WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/socket).

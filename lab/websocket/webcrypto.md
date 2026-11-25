@@ -1,3 +1,9 @@
+---
+title: WebCrypto
+date: 2025-08-29
+description: In recent months WebCrypto has gained X25519 asymmetric functions, and so has node 24+.
+---
+
 # WebCrypto
 
 In recent months [WebCrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) has gained X25519 asymmetric functions, and so has node 24+.

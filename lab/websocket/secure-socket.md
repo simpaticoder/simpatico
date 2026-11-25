@@ -1,3 +1,9 @@
+---
+title: Secure WebSocket
+date: 2025-08-27
+description: A secure websocket encrypts all messages such that the server cannot read them. The server in this scenario verifies clients and routes messages between connected clients.
+---
+
 # Secure WebSocket
  
 A secure websocket encrypts all messages such that the server cannot read them.
@@ -41,7 +47,7 @@ However this is probably unnecessary if using `{perMessageDeflate: true}` as an 
 
 ## Websocket API
 
-We pick the basic browser api and node ws via the [websocket lab](websocket.md).
+We pick the basic browser api and node ws via the [websocket lab](/lab/websocket/simple-websocket.md).
 The client naturally prefers a SecureWebSocketClient class that replaces WebSocket entirely, whereas the server wants to pass in the websocket.
 The implementation is very similar but *complimentary* in the sense they implement both sides of the same protocol.
 This requires two separate classes, SecureWebSocketServer and a SecureWebSocketClient, although they can and should share logic particularly around nacl.js via crypto.js.
@@ -50,7 +56,7 @@ See https://websockets.readthedocs.io/en/stable/topics/compression.html We'll le
 
 ### Registration Protocol implementation
 The simplest possible way to write these classes is to register a temporary, transient onmessage handler, then switch to a steady-state one after registration is complete.
-Within that handler simply use a switch statement as in [SecureWebSocketClient.js](ClientSecureWebSocket.js). 
+Within that handler simply use a switch statement as in [SecureWebSocketClient.js](SecureWebSocketClient.js). 
 (One good alternative is to use a sequence of await statements). The rest of the client code handles decryption behind an onmessage proxy, and encryption behind a send() proxy.
 
 ```js
@@ -230,7 +236,7 @@ No wonder crypto-system authors tend to use "secretKey"
 ## Cryptosystems
 8.30.25 It is very gratifying to have even the basics working. We can generate keypairs in the browser and send ECDH encrypted messages! But this is a very simple and almost certainly not very secure cryptosystem. At the very least we need to use a periodically updated secondary derived symmetric key for encryption to handle a key compromise attack. 
 
-In my research I discovered that [Signal's cryptosystem](https://signal.org/docs/) is well thought-out and anticipates many of the problems this system has. Not only that but they have a comprehensive set of mature, battle-hardened [code](https://github.com/signalapp/Signal-Server) that implements this cryptosystem - and is in fact written in Java! (And not only Java, but the web server portion is done with [dropwizard](https://www.dropwizard.io/en/stable/), which is a personal favorite (much preferable to Spring) and I was unaware it was in use in a major application). So I of course promptly forked the server and have set about building it. I'll write up my notes in [signal lab](signal.md)
+In my research I discovered that [Signal's cryptosystem](https://signal.org/docs/) is well thought-out and anticipates many of the problems this system has. Not only that but they have a comprehensive set of mature, battle-hardened [code](https://github.com/signalapp/Signal-Server) that implements this cryptosystem - and is in fact written in Java! (And not only Java, but the web server portion is done with [dropwizard](https://www.dropwizard.io/en/stable/), which is a personal favorite (much preferable to Spring) and I was unaware it was in use in a major application). So I of course promptly forked the server and have set about building it. I'll write up my notes in signal lab
 
 Even though Signal is a much better starting point for Simpatico, I'm not ashamed of my work on SecureWebSocket. For one thing, it's constraints are quite different, and that makes it's security better in some ways. For example, public keys are naturally ephemeral (currently the lifetime of the browser tab) making private key leakage less likely, and less important if it does happen. My system is effectively synchronous and the server never stores messages, which removes a large swath of threats. I'm pleased that my own thinking was leading me down the road of [X3DH](https://signal.org/docs/specifications/x3dh/) and [ratcheting](https://signal.org/docs/specifications/doubleratchet/) - even if it would have taken me *years* to achieve the same level of completeness and thoughtfulness of the Signal platform.
 

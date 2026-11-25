@@ -1,3 +1,9 @@
+---
+title: Simpatico Chat
+date: 2025-04-05
+description: End-to-end encrypted peer-to-peer chat for up to 4 peers. Each browser tab generates an ephemeral X25519 keypair. Share your invite link to add peers.
+---
+
 # Simpatico Chat
 
 End-to-end encrypted peer-to-peer chat for up to 4 peers. Each browser tab generates an ephemeral X25519 keypair. Share your invite link to add peers.
@@ -149,8 +155,8 @@ Because litmd executes each `js` block as its own ES module, all of the
 client lives in a single block so the pieces can share scope.
 
 ```js
-import * as crypto from './websocket/crypto.js';
-import SecureWebSocketClient from './websocket/SecureWebSocketClient.js';
+import * as crypto from '../websocket/crypto.js';
+import SecureWebSocketClient from '../websocket/SecureWebSocketClient.js';
 
 const myKeyEl = document.getElementById('my-key');
 const inviteLinkEl = document.getElementById('invite-link');

@@ -13,6 +13,7 @@ import {
   parseHtmlFrontMatter,
   parseKeyValueBlock,
   parseTags,
+  pathTags,
   renderFeedXml,
   renderIndexMarkdown,
 } from "../lib/index.js";
@@ -65,6 +66,13 @@ test("parseHtmlFrontMatter falls back to <title> and supports property=", () => 
   );
   assert.equal(meta.title, "Just Title");
   assert.equal(meta.tags, "a, b");
+});
+
+test("pathTags derives tags from the directory path", () => {
+  assert.deepEqual(pathTags("lab/websocket/a.md", "lab"), ["websocket"]);
+  assert.deepEqual(pathTags("lab/websocket/x/a.md", "lab"), ["websocket", "x"]);
+  assert.deepEqual(pathTags("lab/a.md", "lab"), []);
+  assert.deepEqual(pathTags("lab/a.md"), ["lab"]);
 });
 
 test("parseTags handles commas, spaces and brackets", () => {

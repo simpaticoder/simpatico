@@ -1,3 +1,9 @@
+---
+title: Simpatico Socket
+date: 2025-05-04
+description: The stree-based implementation of the secure socket protocol.
+---
+
 # WebSockets
 
 

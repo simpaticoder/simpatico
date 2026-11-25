@@ -1,15 +1,21 @@
+---
+title: STree
+date: 2026-08-11
+description: An n-arry tree that associates a reduction-from-root (called 'residue') with each node. Allows visualizable multiverse programming.
+---
+
 # STree
 2024
 
 An n-arry tree that associates a reduction-from-root (called 'residue') with each node.  Allows visualizable multiverse programming.
 
-See [combine](/combine.md)
+See [combine](/test/combine.md)
 
 # Intro
 With stree I'm taking a page from [Introduction to Algorithms](https://en.wikipedia.org/wiki/Introduction_to_Algorithms) and using a more formal, terse specification.
 This is useful when the number of operations and constraints grow and need to all be revisited on each design iteration
 
-Note: this page is written in [Literate Markdown](../test/lit.md) and executed the code when you loaded the page.
+Note: this page is written in [Literate Markdown](/test/lit.md) and executed the code when you loaded the page.
 The code is quite small, so you may not notice.
 If the tests fail, the page will appear very different, more colorful, and there will be errors in the console.
 That shouldn't happen, but if it does please [file a bug ](https://github.com/simpaticoder/simpatico/issues) and include the console output.
@@ -18,7 +24,7 @@ That shouldn't happen, but if it does please [file a bug ](https://github.com/si
 This svg animation consumes stree messages
 Each message type is a different stable color (in this demo there is only one msg type).
 One fun thing to do is hover over the console output which will select the element in the scene.
-Unlike [d3](/notes/d3-rectangles.html) we don't store the node value in a data attribute.
+Unlike [d3](/lab/svg/d3.md) we don't store the node value in a data attribute.
 
 Here is a simple example of what we're making, an stree with arithmetic handlers:
 
@@ -236,7 +242,7 @@ Regarding 1, my original stree concept involved a 4th reduction over residues th
 
 Regarding 2 and 3, these would both require special methods on stree that interact with combine. The stree instance would need to keep state regarding 'primary' and 'secondary' additions, and manage passing residues between them.
 
-## Notes from [websocket](/websocket)
+## Notes from [websocket](/lab/websocket/)
 
 There is a more general set of problems affecting the stree when used in this way in two ways.
 One symptom is that the residue does not change as expected according to the current value.
@@ -266,7 +272,7 @@ Make stree a reducer over an array of ordered pairs, `[[value, parent]]` where p
 * We add OPERATION `toString()` and private OPERATION `fromString()` and modify the constructor to accept a string.
 
 This requires that the values be serializable and concrete.
-In practical terms, only `functions` need special serialization support, from [core](core).
+In practical terms, only `functions` need special serialization support, from [core](/test/core.md).
 This contract prohibits the `value`s themselves from being arrays or strings.
 
 * Concern: parsing functions means evaling code. Must be careful especially with code from elsewhere.
@@ -421,7 +427,7 @@ assertEquals(10, peek(tree3.nodes).value.foo.bar());
 # Step 4: Authoring
 Make the serialization format more authorable.
 Rather than store an array of arrays, we serialize using a flat array of integers interspersed with values.
-This method is used in [stree2](./stree2) to good effect.
+This method is used to good effect.
 It is not just easier to author, but also saves space and parsing time.
 Despite being a relatively trivial change to `fromArray` and `toArray`, it's important enough to get a discrete step, as a nod to Ken Iverson's excellent 1979 lecture [Notation as a tool of thought](https://www.eecg.toronto.edu/~jzhu/csc326/readings/iverson.pdf)
 

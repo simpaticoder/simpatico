@@ -19,7 +19,7 @@ Here are working visualizations of strees. Each node is rendered as a circle, le
 ```js
 import {arithmeticOps} from "./stree-examples.js";
 import {fromArray, svg} from '/lib/simpatico.js';
-import {renderStree} from '/lib/stree-visualization.js';
+import {renderStree} from '/lab/stree/stree-visualization.js';
 
 const renderParent = svg.elt('arithmetic-render');
 const s = fromArray(arithmeticOps);
@@ -33,7 +33,7 @@ renderStree(s, renderParent);
 ```js
 import {trieOps} from "./stree-examples.js";
 import {fromArray, svg} from '/lib/simpatico.js';
-import {renderStree} from '/lib/stree-visualization.js';
+import {renderStree} from '/lab/stree/stree-visualization.js';
 
 const renderParent = svg.elt('trie-render');
 const s = fromArray(trieOps, (a,b) => ({a: a.a + b.a}));
@@ -47,7 +47,7 @@ renderStree(s, renderParent);
 ```js
 import {objOps} from "./stree-examples.js";
 import {fromArray, svg} from '/lib/simpatico.js';
-import {renderStree} from '/lib/stree-visualization.js';
+import {renderStree} from '/lab/stree/stree-visualization.js';
 
 const renderParent = svg.elt('obj-render');
 const s = fromArray(objOps);
@@ -75,11 +75,11 @@ When a node triggers handler calls (a "message cascade"), those secondary messag
 
 ## Implementation
 
-The visualization code lives in `/lib/stree-visualization.js`. It uses a "clone and scatter" approach:
+The visualization code lives in `/lab/stree/stree-visualization.js`. It uses a "clone and scatter" approach:
 
 1. An SVG template with a single circle/text group is created
 2. For each node, the template is cloned and positioned using `svg.scatter()`
 3. Position is determined by `branchIndex` (y) and sequential order within branch (x)
 4. Colors are assigned based on node type (handlers, messages, etc.)
 
-See the [source code](/lib/stree-visualization.js) for details.
+See the [source code](/lab/stree/stree-visualization.js) for details.

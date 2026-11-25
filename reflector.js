@@ -16,7 +16,7 @@ import { debug, error, hasProp, info, log, mapObject } from "./lib/core.js";
 
 import { combine } from "./lib/combine.js";
 import buildHtmlFromLiterateMarkdown from "./lib/litmd.js";
-import { collectEntries, renderFeedXml, renderIndexMarkdown, titleCase } from "./lib/index.js";
+import { collectEntries, pathTags, renderFeedXml, renderIndexMarkdown, titleCase } from "./lib/index.js";
 import { compileMarkdownModule } from "./lib/litmd-modules.js";
 import { markdownSourceUrl } from "./lib/litmd-sourcemap.js";
 import { findRecentFile } from "./lib/find-recent-file.js";
@@ -677,6 +677,12 @@ export class Reflector {
 
     // Nothing to list: behave like any other missing path.
     if (entries.length === 0) return null;
+
+    // Rule: the file system is the tag set, so fold in the directory path.
+    entries = entries.map((entry) => ({
+      ...entry,
+      tags: [...new Set([...entry.tags, ...pathTags(entry.relPath, rel)])],
+    }));
 
     const dirUrl = rel ? `/${rel}/` : "/";
     const title = rel ? titleCase(path.basename(rel)) : "Index";
